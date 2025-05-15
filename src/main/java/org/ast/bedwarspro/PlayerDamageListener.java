@@ -27,6 +27,9 @@ public class PlayerDamageListener implements Listener {
     public static final Map<UUID, DamageBuff> swordSaintDamageBuff = new HashMap<>();
     private static final Random random = new Random();
 
+    private Map<String,List<String>> playering = new HashMap<>();
+    private List<String> hasChange = new ArrayList<>();
+    private List<String> userNeed = new ArrayList<>();
     public PlayerDamageListener(BedWarsPro plugin) {
         this.plugin = plugin;
     }
@@ -49,6 +52,15 @@ public class PlayerDamageListener implements Listener {
         if (world.getName().startsWith("bedworld")) {
             if (player.getMaxHealth() != 40) {
                 player.setMaxHealth(40);
+                player.setHealth(40);
+                if (playering.containsKey(world.getName())) {
+                    ArrayList<String> playering = new ArrayList<>();
+                    playering.add(player.getName());
+                }else {
+                    ArrayList<String> playering2 = new ArrayList<>();
+                    playering2.add(player.getName());
+                    playering.put(world.getName(), playering2);
+                }
                 player.sendMessage("§a你进入了 BedWorld，最大生命值已设为 20❤");
             }
         } else {
@@ -114,7 +126,44 @@ public class PlayerDamageListener implements Listener {
         Player player = event.getPlayer();
         handleWorldChange(player);
     }
+    @EventHandler
+    public void onPlayerPickupItem(org.bukkit.event.player.PlayerPickupItemEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = event.getItem().getItemStack();
 
+        World world = player.getWorld();
+        if (!world.getName().startsWith("bedworld")) {
+            return;
+        }
+
+        if ( item.getType() == Material.BRICK) {
+            if (!hasChange.contains(player.getName())) {
+                //获取同一个场次的所有人Rating
+                List<String> playersInSameMatch = playering.get(world.getName());
+                double maxRa = 0;
+                for (String name : playersInSameMatch) {
+                    double rating = getRating(name);
+                    if (rating > maxRa) {
+                        maxRa = rating;
+                    }
+                }
+                if (maxRa >= 2 * getRating(player.getName())) {
+                    // 给予永久力量效果（等级1，持续时间设为极大值）
+                    PotionEffect strength = new PotionEffect(
+                            PotionEffectType.INCREASE_DAMAGE, // 力量效果
+                            Integer.MAX_VALUE, // 持续时间（接近无限）
+                            0, // 等级（0 = I级，1 = II级，依此类推）
+                            true, // 是否显示粒子效果
+                            true // 是否覆盖已有效果
+                    );
+                    userNeed.add(player.getName());
+                    player.addPotionEffect(strength);
+                    player.sendMessage("§a因为有人赛季Rating是你的两倍,作为补充,你获得了永久力量增益！");
+                }
+                hasChange.add(player.getName());
+            }
+        }
+    }
     private void handleWorldChange(Player player) {
         String currentWorld = player.getWorld().getName();
         String profession = plugin.getUserPro().getOrDefault(player.getName(), "None");
@@ -122,15 +171,39 @@ public class PlayerDamageListener implements Listener {
         if (!currentWorld.startsWith("bedworld")) {
             if (!profession.equals("None")) {
                 plugin.getUserPro().remove(player.getName());
-                player.sendMessage("你已离开 BedWorld 地图，职业已被清除！");
+                if (plugin.getPlays().containsKey(player.getName())) {
+                    plugin.getPlays().put(player.getName(), plugin.getPlays().get(player.getName()) + 1);
+                }else {
+                    plugin.getPlays().put(player.getName(), 1);
+                }
+                sendMatchSummary(player);
+                playering.get(currentWorld).remove(player.getName());
+                hasChange.remove(player.getName());
+                // 移除力量效果
+                player.removePotionEffect(PotionEffectType.INCREASE_DAMAGE);
+                userNeed.remove(player.getName());
             }
         } else {
             if (!profession.equals("None")) {
-                player.sendMessage("欢迎回来！你当前的职业为：" + profession);
+                player.sendMessage("§d欢迎回来！你当前的职业为：" + profession);
             }
         }
     }
+    private void sendMatchSummary(Player player) {
+        String name = player.getName();
 
+        int kills = plugin.getUser2kill().getOrDefault(name, 0);
+        int deaths = plugin.getUser2death().getOrDefault(name, 0);
+        long totalDamage = plugin.getUser2addr().getOrDefault(name, 0L); // 假设你用 user2addr 来存伤害值
+
+        player.sendMessage("--------------------------------");
+        player.sendMessage("§a【战绩总结】");
+        player.sendMessage("§f赛季击杀数: §c" + kills);
+        player.sendMessage("§f赛季死亡数: §c" + deaths);
+        player.sendMessage("§f总造成伤害: §c" + totalDamage);
+        player.sendMessage("§fBW Rating: §c" + getRating(name));
+        player.sendMessage("-------------------------------");
+    }
     @EventHandler
     public void onPlayerDamage(EntityDamageByEntityEvent event) {
         if (event.getEntity() instanceof Player && event.getDamager() instanceof Player) {
@@ -158,21 +231,38 @@ public class PlayerDamageListener implements Listener {
             else {
                 swordSaintDamageBuff.remove(attacker.getUniqueId());
             }
+            int damage = (int)event.getDamage();
+            if (plugin.getUser2addr().containsKey(attacker.getName())) {
+                plugin.getUser2addr().put(attacker.getName(), plugin.getUser2addr().get(attacker.getName()) + damage);
+            }else {
+                plugin.getUser2addr().put(attacker.getName(), (long) damage);
+            }
         }
     }
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
+
         Player victim = event.getEntity();
         World world = victim.getWorld();
         if (!world.getName().startsWith("bedworld")) {
             return;
         }
-
+        if (plugin.getUser2death().containsKey(victim.getName())) {
+            plugin.getUser2death().put(victim.getName(), plugin.getUser2death().get(victim.getName()) + 1);
+        }else {
+            plugin.getUser2death().put(victim.getName(), 1);
+        }
         // 清空玩家背包
         victim.getInventory().clear();
 
         if (victim.getKiller() instanceof Player) {
             Player killer = victim.getKiller();
+            if (plugin.getUser2kill().containsKey(killer.getName())) {
+                plugin.getUser2kill().compute(killer.getName(), (k, currentKills) -> currentKills + 1);
+            }else{
+                plugin.getUser2kill().put(killer.getName(), 1);
+            }
+
             String profession = plugin.getUserPro().getOrDefault(killer.getName(), "None");
 
             if (profession.contains("剑圣")) {
@@ -183,6 +273,49 @@ public class PlayerDamageListener implements Listener {
                 // 显示带颜色的“斩杀!”标题
                 killer.sendTitle("§c§l斩杀!","x" + swordSaintDamageBuff.get(killer.getUniqueId()).multiplier);
             }
+        }
+
+        if (userNeed.contains(victim.getName())) {
+            PotionEffect strength = new PotionEffect(
+                    PotionEffectType.INCREASE_DAMAGE,
+                    Integer.MAX_VALUE,
+                    0,
+                    true,
+                    true
+            );
+            PotionEffect haste = new PotionEffect(
+                    PotionEffectType.FAST_DIGGING, // 急迫
+                    60, // 3秒
+                    254, // 255级
+                    true,
+                    true
+            );
+
+            victim.addPotionEffect(strength);
+            victim.addPotionEffect(haste);
+            victim.sendMessage("§a你复活后恢复了永久力量增益！");
+        }else{
+            // 给予 2 秒的 255 级力量和急迫
+            PotionEffect strength = new PotionEffect(
+                    PotionEffectType.INCREASE_DAMAGE, // 力量
+                    40, // 2秒 = 40 ticks (20 ticks = 1秒)
+                    254, // 255级 = 254（等级从0开始计算）
+                    true, // 显示粒子效果
+                    true // 覆盖已有效果
+            );
+
+            PotionEffect haste = new PotionEffect(
+                    PotionEffectType.FAST_DIGGING, // 急迫
+                    60, // 3秒
+                    254, // 255级
+                    true,
+                    true
+            );
+
+            victim.addPotionEffect(strength);
+            victim.addPotionEffect(haste);
+
+            victim.sendMessage("§c你复活后获得了 2 秒的 255 级力量和急迫！");
         }
     }
 
@@ -214,7 +347,7 @@ public class PlayerDamageListener implements Listener {
         }
     }
     private void doShenJianShou(Player attacker, Player victim,EntityDamageByEntityEvent event) {
-        attacker.sendMessage("你用【神射手】射中了" + victim.getName() + "，伤害x1.3!");
+        attacker.sendMessage("§d你用【神射手】射中了" + victim.getName() + "，伤害x1.3!");
         event.setDamage(event.getDamage() * 1.3);
     }
 
@@ -224,19 +357,19 @@ public class PlayerDamageListener implements Listener {
             DamageBuff buff = swordSaintDamageBuff.get(attackerUuid);
             if (!buff.isExpired()) {
                 event.setDamage(event.getDamage() * buff.multiplier);
-                attacker.sendMessage("剑圣连击强化！当前伤害倍率: x" + String.format("%.2f", buff.multiplier));
+                attacker.sendMessage("§c剑圣连击强化！当前伤害倍率: x" + String.format("%.2f", buff.multiplier));
             }
         } else {
             // 初始化 buff
             swordSaintDamageBuff.put(attackerUuid, new DamageBuff(1.1, 10000));
             event.setDamage(event.getDamage() * 1.1);
-            attacker.sendMessage("剑圣首次击杀，伤害提升至 x1.1");
+            attacker.sendMessage("§c剑圣首次击杀，伤害提升至 x1.1");
         }
     }
     private void doCike(Player attacker, Player victim,EntityDamageByEntityEvent event) {
         //判断是否是背后攻击
         if (isBackAttack(attacker, victim)) {
-            attacker.sendMessage("你背对攻击了，触发【刺客】技能！");
+            attacker.sendMessage("§c你背对攻击了，触发【刺客】技能！");
             event.setDamage(event.getDamage() * 1.5);
         }
     }
@@ -264,7 +397,7 @@ public class PlayerDamageListener implements Listener {
 
         PotionEffect powerEffect = new PotionEffect(PotionEffectType.INCREASE_DAMAGE, 200, currentLevel);
         attacker.addPotionEffect(powerEffect);
-        attacker.sendMessage("你获得了力量 " + romanNumeral(currentLevel) + " 效果！");
+        attacker.sendMessage("§d你获得了力量 " + romanNumeral(currentLevel) + " 效果！");
     }
     @EventHandler
     public void onFallDamage(org.bukkit.event.entity.EntityDamageEvent event) {
@@ -286,12 +419,12 @@ public class PlayerDamageListener implements Listener {
         Vector direction = player.getLocation().getDirection().normalize(); // 获取视角方向单位向量
         player.setVelocity(direction.multiply(6)); // 初始速度设为 10 倍方向向量
 
-        player.sendMessage("你使用忍者技能，技能效果已触发!");
+        player.sendMessage("§d你使用忍者技能，技能效果已触发!");
     }
     private void doZhanShi(Player attacker, Player victim,EntityDamageByEntityEvent event) {
         double damage = event.getDamage(); // 获取当前伤害值
         event.setDamage(damage*1.15);
-        attacker.sendMessage("你使用战士技能，伤害增加15%!伤害:" + damage*1.15);
+        attacker.sendMessage("§d你使用战士技能，伤害增加15%!伤害:" + damage*1.15);
     }
 
     // 辅助方法：罗马数字转换
@@ -338,12 +471,22 @@ public class PlayerDamageListener implements Listener {
         if (ninjaCooldown.containsKey(uuid)) {
             long remaining = ((ninjaCooldown.get(uuid) + 30000) - System.currentTimeMillis()) / 1000;
             if (remaining > 0) {
-                player.sendMessage("忍者技能冷却中，剩余 " + remaining + " 秒");
+                player.sendMessage("§c忍者技能冷却中，剩余 " + remaining + " 秒");
                 return true;
             }
         }
         ninjaCooldown.put(uuid, System.currentTimeMillis());
         return false;
+    }
+    private double getRating(String name) {
+        long addr  = plugin.getUser2addr().getOrDefault(name, 0L);
+        double addr2k = addr / 40.0;
+        int kill = plugin.getUser2kill().getOrDefault(name, 0);
+        int play = plugin.getPlays().getOrDefault(name, 0);
+        int death = plugin.getUser2kill().getOrDefault(name, 0);
+        int k_d = kill - death;
+        double kd = (double) kill / death;
+        return (kd + addr2k) / death * k_d / (k_d +1);
     }
 
 }

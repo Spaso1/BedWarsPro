@@ -59,3 +59,14 @@ hub:
 clear:
   enabled: true
   interval_minutes: 1
+
+scoreboard:
+  enabled: true
+  title: "§b§lReisaPVP"
+  lines:
+    - "§e Board"
+    - "§d在线人数: {online_players}"
+    - "§a用户名: {username}"
+    - "§bBW Rating {rating}"
+    - ""
+    - "§d mc.rbq.college!"

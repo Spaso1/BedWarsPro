@@ -1,6 +1,9 @@
 package org.ast.bedwarspro;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.ast.bedwarspro.command.HubCommand;
+import org.ast.bedwarspro.mannger.HubWorldManager;
 import org.ast.bedwarspro.task.HubClearTask;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -11,6 +14,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +28,107 @@ import static org.ast.bedwarspro.PlayerDamageListener.swordSaintDamageBuff;
 public final class BedWarsPro extends JavaPlugin {
     private List<String> professionList = new ArrayList<>();
     private Map<String,String> userPro = new HashMap<>();
+
+    private Map<String, Integer> user2kill;
+    private Map<String, Long> user2addr;
+    private Map<String, Integer> plays;
+    private Map<String, Integer> user2death;
+
+    private final File dataFolder = new File(getDataFolder(), "data");
+    private final File killFile = new File(dataFolder, "user2kill.json");
+    private final File addrFile = new File(dataFolder, "user2addr.json");
+    private final File user2deathFile = new File(dataFolder, "user2death.json");
+
+    private final File playFile = new File(dataFolder, "plays.json");
+
+    private final Gson gson = new Gson();
+
+    public Map<String, Integer> getUser2death() {
+        return user2death;
+    }
+
+    public void setUser2death(Map<String, Integer> user2death) {
+        this.user2death = user2death;
+    }
+
+    public Map<String, Integer> getUser2kill() {
+        return user2kill;
+    }
+
+    public Map<String, Integer> getPlays() {
+        return plays;
+    }
+
+    public void setPlays(Map<String, Integer> plays) {
+        this.plays = plays;
+    }
+
+    public void setUser2kill(Map<String, Integer> user2kill) {
+        this.user2kill = user2kill;
+    }
+
+    public Map<String, Long> getUser2addr() {
+        return user2addr;
+    }
+
+    public void setUser2addr(Map<String, Long> user2addr) {
+        this.user2addr = user2addr;
+    }
+
+    // 加载数据
+    public void loadData() {
+        try {
+            if (!dataFolder.exists()) dataFolder.mkdirs();
+            if (killFile.exists()) {
+                Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
+                Map<String, Integer> kills = gson.fromJson(new FileReader(killFile), mapType);
+                if (kills != null) user2kill.putAll(kills);
+            }
+
+            if (addrFile.exists()) {
+                Type mapType = new TypeToken<Map<String, String>>(){}.getType();
+                Map<String, Long> addresses = gson.fromJson(new FileReader(addrFile), mapType);
+                if (addresses != null) user2addr.putAll(addresses);
+            }
+            if (playFile.exists()) {
+                Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
+                Map<String, Integer> plays = gson.fromJson(new FileReader(playFile), mapType);
+                if (plays != null) this.plays.putAll(plays);
+            }
+            if (user2deathFile.exists()) {
+                Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
+                Map<String, Integer> deaths = gson.fromJson(new FileReader(user2deathFile), mapType);
+                if (deaths != null) user2death.putAll(deaths);
+            }
+        } catch (Exception e) {
+            getLogger().severe("加载用户数据失败！");
+            e.printStackTrace();
+        }
+    }
+
+    // 保存数据
+    public void saveData() {
+        try {
+            if (!dataFolder.exists()) dataFolder.mkdirs();
+            try (FileWriter killWriter = new FileWriter(killFile)) {
+                killWriter.write(gson.toJson(user2kill));
+            }
+            try (FileWriter addrWriter = new FileWriter(addrFile)) {
+                addrWriter.write(gson.toJson(user2addr));
+            }
+            try (FileWriter playWriter = new FileWriter(playFile)) {
+                playWriter.write(gson.toJson(plays));
+            }
+            try (FileWriter deathWriter = new FileWriter(user2deathFile)) {
+                deathWriter.write(gson.toJson(user2death));
+            }
+        } catch (Exception e) {
+            getLogger().severe("保存用户数据失败！");
+            e.printStackTrace();
+        }
+    }
+
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -28,12 +136,14 @@ public final class BedWarsPro extends JavaPlugin {
         getLogger().info("BedWars plugin has started!");
         getServer().getPluginManager().registerEvents(new PlayerDamageListener(this), this);
         Bukkit.getPluginManager().registerEvents(new ProfessionMenuListener(this), this);
+        getServer().getPluginManager().registerEvents(new HubWorldManager(this), this);
 
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             swordSaintDamageBuff.entrySet().removeIf(entry -> entry.getValue().isExpired());
         }, 20L, 20L); // 每秒检查一次
         // 注册 /hub 指令
-
+        // 加载击杀和地址数据
+        loadData();
         // 启动定时清除任务
         if (getConfig().getBoolean("clear.enabled")) {
             int intervalMinutes = getConfig().getInt("clear.interval_minutes", 1);
@@ -155,6 +265,7 @@ public final class BedWarsPro extends JavaPlugin {
     }
     @Override
     public void onDisable() {
+        saveData(); // 关闭前保存一次
     }
     public FileConfiguration getGameConfig() {
         return getConfig();

@@ -34,5 +34,7 @@ public class HubClearTask implements Runnable {
         }
 
         plugin.getLogger().info("已清除大厅掉落物");
+
+        plugin.saveData();
     }
 }
