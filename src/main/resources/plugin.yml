@@ -1,0 +1,8 @@
+name: BedWars
+version: '${project.version}'
+main: org.ast.bedwarspro.BedWars
+commands:
+  bp:
+    description: BedWars game command
+    usage: /bp <set>
+    aliases: [bedwars]
