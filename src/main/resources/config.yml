@@ -1,8 +1,43 @@
 professions:
-  - 战士
-  - 忍者
-  - 箭神
-  - 圣剑
-  - 剑圣
-  - 刺客
-  - 神射手
+  warrior:
+    name: "§c战士"
+    icon: GOLD_SWORD
+    description:
+      - "近战伤害增加15%"
+    cost: 3
+
+  ninja:
+    name: "§b忍者"
+    icon: SUGAR
+    description:
+      - "双击Shift可高跳"
+    cost: 3
+
+  archer:
+    name: "§e箭神"
+    icon: BOW
+    description:
+      - "远程攻击有概率获得力量(叠加)"
+    cost: 3
+
+  swordsman:
+    name: "§c剑圣"
+    icon: DIAMOND_SWORD
+    description:
+      - "击杀敌人后获得连击伤害加成(叠加)"
+    cost: 3
+
+  assassin:
+    name: "§c刺客"
+    icon: IRON_SWORD
+    description:
+      - "背后攻击造成额外伤害(你看看你后面呢)"
+    cost: 3
+
+  sharpshooter:
+    name: "§b神射手"
+    icon: BOW
+    description:
+      - "远程伤害提升，命中时"
+      - "有一定几率获得闪避效果"
+    cost: 3

@@ -1,15 +1,19 @@
 package org.ast.bedwarspro;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.ast.bedwarspro.PlayerDamageListener.swordSaintDamageBuff;
 
 public final class BedWars extends JavaPlugin {
     private List<String> professionList = new ArrayList<>();
@@ -20,6 +24,12 @@ public final class BedWars extends JavaPlugin {
         professionList = getConfig().getStringList("professions");
         getLogger().info("BedWars plugin has started!");
         getServer().getPluginManager().registerEvents(new PlayerDamageListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new ProfessionMenuListener(this), this);
+
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            swordSaintDamageBuff.entrySet().removeIf(entry -> entry.getValue().isExpired());
+        }, 20L, 20L); // 每秒检查一次
+
     }
     public Map<String, String> getUserPro() {
         return userPro;
@@ -63,6 +73,15 @@ public final class BedWars extends JavaPlugin {
                     } else {
                         player.sendMessage("You need at least 3 gold ingots to activate a profession!");
                     }
+                } else {
+                    sender.sendMessage("Only players can use this command.");
+                }
+                return true;
+            } if (args.length >= 1 && args[0].equalsIgnoreCase("open")) {
+                if (sender instanceof Player) {
+                    Player player = (Player) sender;
+                    Inventory gui = ProfessionGUI.getProfessionGUI(this, player);
+                    player.openInventory(gui);
                 } else {
                     sender.sendMessage("Only players can use this command.");
                 }

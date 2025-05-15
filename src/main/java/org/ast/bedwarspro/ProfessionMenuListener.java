@@ -1,0 +1,91 @@
+package org.ast.bedwarspro;
+
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class ProfessionMenuListener implements Listener {
+
+    private final BedWars plugin;
+
+    public ProfessionMenuListener(BedWars plugin) {
+        this.plugin = plugin;
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        Player player = (Player) event.getWhoClicked();
+
+        if (event.getView().getTitle().equals("选择你的职业")) {
+            event.setCancelled(true); // 阻止物品被拿走
+
+            ItemStack clickedItem = event.getCurrentItem();
+            if (clickedItem == null || clickedItem.getType() == Material.AIR) return;
+
+            String professionName = clickedItem.getItemMeta().hasDisplayName()
+                    ? clickedItem.getItemMeta().getDisplayName()
+                    : "None";
+
+            // 获取配置中的职业名和价格
+            String professionKey = findConfigKeyByDisplayName(professionName);
+            if (professionKey == null) return;
+
+            int cost = plugin.getConfig().getInt("professions." + professionKey + ".cost", 3);
+
+            // 检查金币
+            int goldCount = 0;
+            for (org.bukkit.inventory.ItemStack item : player.getInventory().getContents()) {
+                if (item != null && item.getType() == org.bukkit.Material.GOLD_INGOT) {
+                    goldCount += item.getAmount();
+                }
+            }
+
+            if (goldCount >= cost) {
+                // 扣除金币
+                removeGold(player, cost);
+
+                // 设置职业
+                plugin.getUserPro().put(player.getName(), professionName);
+                player.sendMessage("你已选择职业：" + professionName + "，花费了 " + cost + " 个金锭！");
+                player.closeInventory();
+            } else {
+                player.sendMessage("你没有足够的金锭！需要 " + cost + " 个金锭。");
+            }
+        }
+    }
+
+    private String findConfigKeyByDisplayName(String displayName) {
+        Map<String, String> professionMap = new HashMap<>();
+        professionMap.put("战士", "warrior");
+        professionMap.put("忍者", "ninja");
+        professionMap.put("箭神", "archer");
+        professionMap.put("剑圣", "swordsman");
+        professionMap.put("刺客", "assassin");
+        professionMap.put("神射手", "sharpshooter");
+
+        return professionMap.get(displayName);
+    }
+
+    private void removeGold(Player player, int amount) {
+        int goldToRemove = amount;
+        for (org.bukkit.inventory.ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == org.bukkit.Material.GOLD_INGOT) {
+                int currentAmount = item.getAmount();
+                if (currentAmount <= goldToRemove) {
+                    player.getInventory().remove(item);
+                    goldToRemove -= currentAmount;
+                } else {
+                    item.setAmount(currentAmount - goldToRemove);
+                    break;
+                }
+            }
+        }
+    }
+}
