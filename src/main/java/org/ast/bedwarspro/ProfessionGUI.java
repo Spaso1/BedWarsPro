@@ -11,8 +11,12 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.List;
 
 public class ProfessionGUI {
+    public static void openProfessionGUI(BedWarsPro plugin, Player player) {
+        Inventory gui = getProfessionGUI(plugin, player);
+        player.openInventory(gui);
+    }
 
-    public static Inventory getProfessionGUI(BedWars plugin, Player player) {
+    public static Inventory getProfessionGUI(BedWarsPro plugin, Player player) {
         Inventory gui = Bukkit.createInventory(null, 9 * 3, "选择你的职业");
 
         ConfigurationSection professionsSection = plugin.getConfig().getConfigurationSection("professions");

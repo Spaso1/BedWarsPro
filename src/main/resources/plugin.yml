@@ -1,9 +1,14 @@
-name: BedWars
+name: BedWarsPro
 version: '${project.version}'
-main: org.ast.bedwarspro.BedWars
+main: org.ast.bedwarspro.BedWarsPro
 commands:
   bp:
     description: BedWars game command
     usage: /bp <set|open>
     permission: true  # 允许所有人执行此命令
     aliases: [bedwars]
+  lobby:
+    description: Hub command
+    usage: /lobby
+    permission: true
+

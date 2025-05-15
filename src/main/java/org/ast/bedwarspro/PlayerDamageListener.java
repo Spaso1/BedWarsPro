@@ -1,31 +1,33 @@
 package org.ast.bedwarspro;
 
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 
 public class PlayerDamageListener implements Listener {
-    private final BedWars plugin;
+    private final BedWarsPro plugin;
     private final Map<UUID, Long> lastSneakPress = new HashMap<>();
     private final Map<UUID, Long> ninjaCooldown = new HashMap<>();
     public static final Map<UUID, DamageBuff> swordSaintDamageBuff = new HashMap<>();
     private static final Random random = new Random();
 
-    public PlayerDamageListener(BedWars plugin) {
+    public PlayerDamageListener(BedWarsPro plugin) {
         this.plugin = plugin;
     }
     @EventHandler
@@ -37,7 +39,75 @@ public class PlayerDamageListener implements Listener {
         if (!fromWorld.equals(toWorld)) {
             handleWorldChange(player);
         }
+
+        World world = player.getWorld();
+        if (!world.getName().startsWith("bedworld")) {
+            return;
+        }
+
+        // 如果进入 bedworld 开头的地图，设置最大血量为 40
+        if (world.getName().startsWith("bedworld")) {
+            if (player.getMaxHealth() != 40) {
+                player.setMaxHealth(40);
+                player.sendMessage("§a你进入了 BedWorld，最大生命值已设为 20❤");
+            }
+        } else {
+            player.resetMaxHealth();
+        }
+        // === 职业选择钻石逻辑开始 ===
+        boolean hasSelectorDiamond = false;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == Material.DIAMOND && item.hasItemMeta()) {
+                ItemMeta meta = item.getItemMeta();
+
+                if (meta != null && meta.hasDisplayName() && "§6职业选择".equals(meta.getDisplayName())) {
+                    hasSelectorDiamond = true;
+                    break;
+                }
+            }
+        }
+
+        if (!hasSelectorDiamond) {
+            ItemStack professionDiamond = new ItemStack(Material.DIAMOND);
+            ItemMeta meta = professionDiamond.getItemMeta();
+
+            if (meta != null) {
+                meta.setDisplayName("§6职业选择");
+                List<String> lore = new ArrayList<>();
+                lore.add("§e右键点击选择职业");
+                meta.setLore(lore);
+                professionDiamond.setItemMeta(meta);
+            }
+
+            player.getInventory().addItem(professionDiamond);
+            player.sendMessage("§e你获得了一个 §6职业选择 §e钻石，右键点击它来选择职业！");
+        }
+
+        // === 职业选择钻石逻辑结束 ===
     }
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        World world = player.getWorld();
+
+        if (!world.getName().startsWith("bedworld")) {
+            return;
+        }
+
+        ItemStack item = player.getInventory().getItemInHand(); // 适用于 1.12 及以下
+
+        if ((event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)
+                && item != null && item.getType() == Material.DIAMOND && item.hasItemMeta()) {
+
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null && "§6职业选择".equals(meta.getDisplayName())) {
+                ProfessionGUI.openProfessionGUI(plugin, player);
+                event.setCancelled(true); // 防止误操作方块或实体
+            }
+        }
+    }
+
 
     @EventHandler
     public void onPlayerTeleport(PlayerTeleportEvent event) {
@@ -74,23 +144,20 @@ public class PlayerDamageListener implements Listener {
             String victimProfession = plugin.getUserPro().getOrDefault(victim.getName(), "None");
             String attackerProfession = plugin.getUserPro().getOrDefault(attacker.getName(), "None");
 
-            if (attackerProfession.equals("战士")) {
+            if (attackerProfession.contains("战士")) {
                 doZhanShi(attacker, victim,event);
-            }else if (attackerProfession.equals("剑圣")) {
+            }else if (attackerProfession.contains("剑圣")) {
                 doJianSheng(attacker,victim,event);
-            }else  if (attackerProfession.equals("箭神") && event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
+            }else  if (attackerProfession.contains("箭神") && event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
                 doJianShen(attacker,  victim,event);
-            }else if (attackerProfession.equals("刺客")){
+            }else if (attackerProfession.contains("刺客")){
                 doCike(attacker,victim,event);
-            }else if (attackerProfession.equals("神射手") && event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
+            }else if (attackerProfession.contains("神射手") && event.getCause() == EntityDamageEvent.DamageCause.PROJECTILE) {
                 doShenJianShou(attacker, victim,event);
             }
             else {
                 swordSaintDamageBuff.remove(attacker.getUniqueId());
             }
-            // Example: Send a message to both players
-            attacker.sendMessage("You attacked " + victim.getName() + " who is a " + victimProfession + "!");
-            victim.sendMessage("You were attacked by " + attacker.getName() + " who is a " + attackerProfession + "!");
         }
     }
     @EventHandler
@@ -101,11 +168,14 @@ public class PlayerDamageListener implements Listener {
             return;
         }
 
+        // 清空玩家背包
+        victim.getInventory().clear();
+
         if (victim.getKiller() instanceof Player) {
             Player killer = victim.getKiller();
             String profession = plugin.getUserPro().getOrDefault(killer.getName(), "None");
 
-            if (profession.equals("剑圣")) {
+            if (profession.contains("剑圣")) {
                 // 设置初始 buff：1.1 倍，持续 10 秒
                 swordSaintDamageBuff.put(killer.getUniqueId(), new DamageBuff(1.1, 10000));
                 killer.sendMessage("§c你击杀了玩家，获得【剑圣】伤害加成！");
@@ -131,7 +201,7 @@ public class PlayerDamageListener implements Listener {
                 if (timeDiff < 300) { // 双击间隔设为 300ms
                     // 触发双击 Shift 事件
                     String attackerProfession = plugin.getUserPro().getOrDefault(player.getName(), "None");
-                    if (attackerProfession.equals("忍者")) {
+                    if (attackerProfession.contains("忍者")) {
                         if (!hasCooldown(player)) {
                             doRenZe(player);
                         }
@@ -153,13 +223,6 @@ public class PlayerDamageListener implements Listener {
         if (swordSaintDamageBuff.containsKey(attackerUuid)) {
             DamageBuff buff = swordSaintDamageBuff.get(attackerUuid);
             if (!buff.isExpired()) {
-                // 刷新 buff 时间
-                buff.expireTime = System.currentTimeMillis() + 10000;
-
-                // 叠加伤害倍率
-                buff.multiplier *= 1.1;
-
-                // 应用到本次伤害
                 event.setDamage(event.getDamage() * buff.multiplier);
                 attacker.sendMessage("剑圣连击强化！当前伤害倍率: x" + String.format("%.2f", buff.multiplier));
             }
@@ -203,9 +266,25 @@ public class PlayerDamageListener implements Listener {
         attacker.addPotionEffect(powerEffect);
         attacker.sendMessage("你获得了力量 " + romanNumeral(currentLevel) + " 效果！");
     }
+    @EventHandler
+    public void onFallDamage(org.bukkit.event.entity.EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player)) return;
+        Player player = (Player) event.getEntity();
+
+        // 只处理摔落伤害
+        if (event.getCause() != EntityDamageEvent.DamageCause.FALL) return;
+
+        String profession = plugin.getUserPro().getOrDefault(player.getName(), "None");
+
+        // 检查是否是忍者职业
+        if (profession.contains("忍者")) {
+            event.setCancelled(true); // 取消摔落伤害
+            player.sendMessage("§a你触发了忍者技能：摔落无伤害！");
+        }
+    }
     private void doRenZe(Player player) {
         Vector direction = player.getLocation().getDirection().normalize(); // 获取视角方向单位向量
-        player.setVelocity(direction.multiply(10)); // 初始速度设为 10 倍方向向量
+        player.setVelocity(direction.multiply(6)); // 初始速度设为 10 倍方向向量
 
         player.sendMessage("你使用忍者技能，技能效果已触发!");
     }

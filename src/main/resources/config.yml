@@ -4,6 +4,8 @@ professions:
     icon: GOLD_SWORD
     description:
       - "近战伤害增加15%"
+      - "3金"
+
     cost: 3
 
   ninja:
@@ -11,6 +13,8 @@ professions:
     icon: SUGAR
     description:
       - "双击Shift可高跳"
+      - "3金"
+
     cost: 3
 
   archer:
@@ -18,6 +22,8 @@ professions:
     icon: BOW
     description:
       - "远程攻击有概率获得力量(叠加)"
+      - "3金"
+
     cost: 3
 
   swordsman:
@@ -25,6 +31,8 @@ professions:
     icon: DIAMOND_SWORD
     description:
       - "击杀敌人后获得连击伤害加成(叠加)"
+      - "3金"
+
     cost: 3
 
   assassin:
@@ -32,6 +40,7 @@ professions:
     icon: IRON_SWORD
     description:
       - "背后攻击造成额外伤害(你看看你后面呢)"
+      - "3金"
     cost: 3
 
   sharpshooter:
@@ -40,4 +49,13 @@ professions:
     description:
       - "远程伤害提升，命中时"
       - "有一定几率获得闪避效果"
+      - "3金"
+
     cost: 3
+
+hub:
+  name: "world"
+  protected: true
+clear:
+  enabled: true
+  interval_minutes: 1

@@ -1,5 +1,6 @@
 package org.ast.bedwarspro;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,9 +13,9 @@ import java.util.Map;
 
 public class ProfessionMenuListener implements Listener {
 
-    private final BedWars plugin;
+    private final BedWarsPro plugin;
 
-    public ProfessionMenuListener(BedWars plugin) {
+    public ProfessionMenuListener(BedWarsPro plugin) {
         this.plugin = plugin;
     }
 
@@ -23,7 +24,7 @@ public class ProfessionMenuListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
 
-        if (event.getView().getTitle().equals("选择你的职业")) {
+        if (ChatColor.stripColor(event.getView().getTitle()).equals("选择你的职业")) {
             event.setCancelled(true); // 阻止物品被拿走
 
             ItemStack clickedItem = event.getCurrentItem();
@@ -63,12 +64,12 @@ public class ProfessionMenuListener implements Listener {
 
     private String findConfigKeyByDisplayName(String displayName) {
         Map<String, String> professionMap = new HashMap<>();
-        professionMap.put("战士", "warrior");
-        professionMap.put("忍者", "ninja");
-        professionMap.put("箭神", "archer");
-        professionMap.put("剑圣", "swordsman");
-        professionMap.put("刺客", "assassin");
-        professionMap.put("神射手", "sharpshooter");
+        professionMap.put("§c战士", "warrior");
+        professionMap.put("§b忍者", "ninja");
+        professionMap.put("§e箭神", "archer");
+        professionMap.put("§c剑圣", "swordsman");
+        professionMap.put("§c刺客", "assassin");
+        professionMap.put("§b神射手", "sharpshooter");
 
         return professionMap.get(displayName);
     }
