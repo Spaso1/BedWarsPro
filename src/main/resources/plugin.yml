@@ -1,14 +1,21 @@
 name: BedWarsPro
 version: '${project.version}'
 main: org.ast.bedwarspro.BedWarsPro
+
 commands:
   bp:
-    description: BedWars game command
-    usage: /bp <set|open>
-    permission: true  # 允许所有人执行此命令
+    description: 起床战争辅助功能
+    usage: /bp <set|open|menu>
+    permission: bedwarspro.use.bp
     aliases: [bedwars]
+
+  bps:
+    description: 生存服务器
+    usage: /bps <enchant|randomTp|tp|menu>
+    permission: bedwarspro.use.bps
+    aliases: [bps]
+
   lobby:
     description: Hub command
     usage: /lobby
-    permission: true
-
+    permission: bedwarspro.use.lobby

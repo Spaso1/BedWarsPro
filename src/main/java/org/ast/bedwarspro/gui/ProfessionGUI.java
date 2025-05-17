@@ -1,5 +1,6 @@
-package org.ast.bedwarspro;
+package org.ast.bedwarspro.gui;
 
+import org.ast.bedwarspro.BedWarsPro;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;

@@ -1,9 +1,18 @@
 package org.ast.bedwarspro;
 
+import com.google.common.io.Files;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import org.ast.bedwarspro.command.HubCommand;
+import org.ast.bedwarspro.command.BPSuivialCommand;
+import org.ast.bedwarspro.gui.PlayerStatsGUI;
+import org.ast.bedwarspro.gui.ProfessionGUI;
+import org.ast.bedwarspro.listener.GameMenuClickListener;
+import org.ast.bedwarspro.listener.InventorySyncListener;
+import org.ast.bedwarspro.listener.PlayerStatsGUIListener;
+import org.ast.bedwarspro.listener.TeleportConfirmListener;
+import org.ast.bedwarspro.mannger.GroupWorldManager;
 import org.ast.bedwarspro.mannger.HubWorldManager;
+import org.ast.bedwarspro.storage.InventoryStorage;
 import org.ast.bedwarspro.task.HubClearTask;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -12,12 +21,16 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,7 +55,18 @@ public final class BedWarsPro extends JavaPlugin {
     private final File playFile = new File(dataFolder, "plays.json");
 
     private final Gson gson = new Gson();
+    public Map<String, Long> userCoins = new HashMap<>(); // 金币存储
+    private final File userCoinsFile = new File(dataFolder, "userCoinsFile.json");
 
+    public boolean hasEnoughCoins(Player player, long amount) {
+        return userCoins.getOrDefault(player.getName(), 0L) >= amount;
+    }
+    public void deductCoins(Player player, long amount) {
+        userCoins.put(player.getName(), userCoins.getOrDefault(player.getName(), 0L) - amount);
+    }
+    public long getCoins(Player player) {
+        return userCoins.getOrDefault(player.getName(), 0L);
+    }
     public Map<String, Integer> getUser2death() {
         return user2death;
     }
@@ -70,11 +94,18 @@ public final class BedWarsPro extends JavaPlugin {
     public Map<String, Long> getUser2addr() {
         return user2addr;
     }
+    public static Map<String,Boolean> white = new HashMap<>();
 
     public void setUser2addr(Map<String, Long> user2addr) {
         this.user2addr = user2addr;
     }
+    public void re() {
+        user2kill = new HashMap<>();
+        user2addr = new HashMap<>();
+        this.plays = new HashMap<>();
+        user2death = new HashMap<>();
 
+    }
     // 加载数据
     public void loadData() {
         try {
@@ -82,23 +113,62 @@ public final class BedWarsPro extends JavaPlugin {
             if (killFile.exists()) {
                 Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
                 Map<String, Integer> kills = gson.fromJson(new FileReader(killFile), mapType);
-                if (kills != null) user2kill.putAll(kills);
+                if (kills != null && !kills.isEmpty()) {
+                    user2kill = (kills);
+                    System.out.println("Yes:" + kills.size());
+                } else {
+                    System.out.println("Content:" + gson.toJson(user2kill));
+                    System.out.println("NullError:" + killFile.getName());
+                }
             }
 
             if (addrFile.exists()) {
-                Type mapType = new TypeToken<Map<String, String>>(){}.getType();
+                Type mapType = new TypeToken<Map<String, Long>>(){}.getType(); // 修改为 Map<String, Long>
                 Map<String, Long> addresses = gson.fromJson(new FileReader(addrFile), mapType);
-                if (addresses != null) user2addr.putAll(addresses);
+                if (addresses != null && !addresses.isEmpty()) {
+                    user2addr = (addresses);
+                    System.out.println("Yes:" + addresses.size());
+                }else {
+                    System.out.println("Content:" + gson.toJson(user2addr));
+                    System.out.println("NullError:" + addrFile.getName());
+                }
             }
+
             if (playFile.exists()) {
                 Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
                 Map<String, Integer> plays = gson.fromJson(new FileReader(playFile), mapType);
-                if (plays != null) this.plays.putAll(plays);
+                if (plays != null && !plays.isEmpty()) {
+                    this.plays = (plays);
+                    System.out.println("Yes:" + plays.size());
+                }else {
+                    //输出内容
+                    System.out.println("Content:" + gson.toJson(plays));
+                    System.out.println("NullError:" + playFile.getName());
+                }
             }
             if (user2deathFile.exists()) {
                 Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
                 Map<String, Integer> deaths = gson.fromJson(new FileReader(user2deathFile), mapType);
-                if (deaths != null) user2death.putAll(deaths);
+                if (deaths != null && !deaths.isEmpty()) {
+                    user2death = (deaths);
+                    System.out.println("Yes:" + deaths.size());
+                }else {
+                    //输出内容
+                    System.out.println("Content:" + gson.toJson(deaths));
+                    System.out.println("NullError:" + user2deathFile.getName());
+                }
+            }
+            if (userCoinsFile.exists()) {
+                Type mapType = new TypeToken<Map<String, Long>>(){}.getType();
+                Map<String, Long> coins = gson.fromJson(new FileReader(userCoinsFile), mapType);
+                if (coins != null && !coins.isEmpty()) {
+                    userCoins = (coins);
+                    System.out.println("Yes:" + coins.size());
+                }else {
+                    //输出内容
+                    System.out.println("Content:" + gson.toJson(coins));
+                    System.out.println("NullError:" + userCoinsFile.getName());
+                }
             }
         } catch (Exception e) {
             getLogger().severe("加载用户数据失败！");
@@ -122,6 +192,9 @@ public final class BedWarsPro extends JavaPlugin {
             try (FileWriter deathWriter = new FileWriter(user2deathFile)) {
                 deathWriter.write(gson.toJson(user2death));
             }
+            try (FileWriter coinWriter = new FileWriter(userCoinsFile)) {
+                coinWriter.write(gson.toJson(userCoins));
+            }
         } catch (Exception e) {
             getLogger().severe("保存用户数据失败！");
             e.printStackTrace();
@@ -131,12 +204,33 @@ public final class BedWarsPro extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.bp", PermissionDefault.TRUE));
+        getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.bps", PermissionDefault.TRUE));
+        getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.lobby", PermissionDefault.TRUE));
+// 在 BedWarsPro.java 的 onEnable 方法中添加：
+        GroupWorldManager groupWorldManager = new GroupWorldManager(this);
+        InventoryStorage inventoryStorage = new InventoryStorage(this.getDataFolder());
+
+        Bukkit.getPluginManager().registerEvents(new InventorySyncListener(groupWorldManager, inventoryStorage), this);
+
+        white = new HashMap<>();
+        loadWhiteList();
+        white.put("Spasol",true);
+        white.put("LovelyBoyBZ",true);
+
+
         saveDefaultConfig();
         professionList = getConfig().getStringList("professions");
         getLogger().info("BedWars plugin has started!");
         getServer().getPluginManager().registerEvents(new PlayerDamageListener(this), this);
         Bukkit.getPluginManager().registerEvents(new ProfessionMenuListener(this), this);
         getServer().getPluginManager().registerEvents(new HubWorldManager(this), this);
+        //getServer().getPluginManager().registerEvents(new ReisaClickerListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new GameMenuClickListener(), this);
+// 在 BedWarsPro.java 的 onEnable() 中添加
+        this.getCommand("bps").setExecutor(new BPSuivialCommand());
+        Bukkit.getPluginManager().registerEvents(new TeleportConfirmListener(), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerStatsGUIListener(), this);
 
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             swordSaintDamageBuff.entrySet().removeIf(entry -> entry.getValue().isExpired());
@@ -150,6 +244,39 @@ public final class BedWarsPro extends JavaPlugin {
             Bukkit.getScheduler().runTaskTimer(this, new HubClearTask(this), 0L, intervalMinutes * 20L * 60L);
         }
     }
+
+    private void loadWhiteList() {
+        File whiteListFile = new File(getDataFolder(), "whiteList");
+
+        if (!whiteListFile.exists()) {
+            try {
+                // 如果文件不存在，创建一个空文件（可选）
+                whiteListFile.createNewFile();
+                try (FileWriter writer = new FileWriter(whiteListFile)) {
+                    writer.write("Spasol\nLovelyBoyBZ\n"); // 可选默认内容
+                }
+            } catch (IOException e) {
+                getLogger().severe("无法创建 whiteList 文件！");
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        try {
+            List<String> lines = Files.readLines(whiteListFile, StandardCharsets.UTF_8);
+            for (String line : lines) {
+                String name = line.trim();
+                if (!name.isEmpty()) {
+                    white.put(name, true);
+                }
+            }
+            getLogger().info("成功加载 " + white.size() + " 个白名单玩家");
+        } catch (IOException e) {
+            getLogger().severe("读取 whiteList 文件失败！");
+            e.printStackTrace();
+        }
+    }
+
     public Map<String, String> getUserPro() {
         return userPro;
     }
@@ -175,6 +302,7 @@ public final class BedWarsPro extends JavaPlugin {
             return true;
         }
         if (command.getName().equalsIgnoreCase("bp")) {
+
             if (args.length >= 2 && args[0].equalsIgnoreCase("set")) {
                 if (sender instanceof Player) {
                     Player player = (Player) sender;
@@ -250,10 +378,20 @@ public final class BedWarsPro extends JavaPlugin {
                     }
                 }
                 return true;
+
             } if (args.length >= 1 && args[0].equalsIgnoreCase("open")) {
                 if (sender instanceof Player) {
                     Player player = (Player) sender;
                     Inventory gui = ProfessionGUI.getProfessionGUI(this, player);
+                    player.openInventory(gui);
+                } else {
+                    sender.sendMessage("Only players can use this command.");
+                }
+                return true;
+            } else if (args.length >= 1 && args[0].equalsIgnoreCase("menu")) {
+                if (sender instanceof Player) {
+                    Player player = (Player) sender;
+                    Inventory gui = PlayerStatsGUI.createPlayerStatsGUI(player, this);
                     player.openInventory(gui);
                 } else {
                     sender.sendMessage("Only players can use this command.");

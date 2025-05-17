@@ -1,8 +1,11 @@
 package org.ast.bedwarspro;
 
+import org.ast.bedwarspro.gui.ProfessionGUI;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -11,6 +14,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -20,16 +24,19 @@ import org.bukkit.util.Vector;
 
 import java.util.*;
 
+import static org.ast.bedwarspro.listener.ReisaClickerListener.getIsNeedExecute;
+
 public class PlayerDamageListener implements Listener {
     private final BedWarsPro plugin;
     private final Map<UUID, Long> lastSneakPress = new HashMap<>();
     private final Map<UUID, Long> ninjaCooldown = new HashMap<>();
     public static final Map<UUID, DamageBuff> swordSaintDamageBuff = new HashMap<>();
     private static final Random random = new Random();
-
+    // 记录玩家是否处于战斗状态及最后活动时间
+    private final Map<UUID, Long> combatCooldown = new HashMap<>();
     private Map<String,List<String>> playering = new HashMap<>();
     private List<String> hasChange = new ArrayList<>();
-    private List<String> userNeed = new ArrayList<>();
+    private Map<String,Integer> userNeed = new HashMap<>();
     public PlayerDamageListener(BedWarsPro plugin) {
         this.plugin = plugin;
     }
@@ -97,6 +104,28 @@ public class PlayerDamageListener implements Listener {
 
         // === 职业选择钻石逻辑结束 ===
     }
+    @EventHandler
+    public void onItemDespawn(org.bukkit.event.entity.ItemDespawnEvent event) {
+        // 获取掉落物所在的 World 对象
+        World world = event.getEntity().getWorld();
+
+        // 检查是否是 bedworld 开头的地图
+        if (!world.getName().startsWith("bedworld")) {
+            return;
+        }
+
+        // 获取掉落的物品
+        ItemStack itemStack = event.getEntity().getItemStack();
+
+        // 判断是否是空玻璃瓶（Material.AIR 在旧版本可能为 Material.GLASS_BOTTLE）
+        if (itemStack.getType() == Material.GLASS_BOTTLE && itemStack.getAmount() == 1) {
+            // 取消该物品的自然消失
+            event.setCancelled(true);
+
+            // 删除该掉落物实体
+            event.getEntity().remove();
+        }
+    }
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -147,18 +176,19 @@ public class PlayerDamageListener implements Listener {
                         maxRa = rating;
                     }
                 }
-                if (maxRa >= 2 * getRating(player.getName())) {
+                int rat = (int) (maxRa / getRating(player.getName()));
+                if (rat>=2) {
                     // 给予永久力量效果（等级1，持续时间设为极大值）
                     PotionEffect strength = new PotionEffect(
                             PotionEffectType.INCREASE_DAMAGE, // 力量效果
                             Integer.MAX_VALUE, // 持续时间（接近无限）
-                            0, // 等级（0 = I级，1 = II级，依此类推）
+                            rat - 2, // 等级（0 = I级，1 = II级，依此类推）
                             true, // 是否显示粒子效果
                             true // 是否覆盖已有效果
                     );
-                    userNeed.add(player.getName());
+                    userNeed.put(player.getName(),rat-2);
                     player.addPotionEffect(strength);
-                    player.sendMessage("§a因为有人赛季Rating是你的两倍,作为补充,你获得了永久力量增益！");
+                    player.sendMessage("§a因为有人赛季Rating是你的" + rat+"倍,作为补充,你获得了永久力量增益！");
                 }
                 hasChange.add(player.getName());
             }
@@ -204,11 +234,17 @@ public class PlayerDamageListener implements Listener {
         player.sendMessage("§fBW Rating: §c" + getRating(name));
         player.sendMessage("-------------------------------");
     }
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerDamage(EntityDamageByEntityEvent event) {
+        // 首先检查事件是否被取消
+        if (event.isCancelled()) {
+            return;
+        }
         if (event.getEntity() instanceof Player && event.getDamager() instanceof Player) {
             Player victim = (Player) event.getEntity();
             Player attacker = (Player) event.getDamager();
+
+
             World world = victim.getWorld();
             if (!world.getName().startsWith("bedworld")) {
                 return;
@@ -216,6 +252,9 @@ public class PlayerDamageListener implements Listener {
             // Retrieve professions
             String victimProfession = plugin.getUserPro().getOrDefault(victim.getName(), "None");
             String attackerProfession = plugin.getUserPro().getOrDefault(attacker.getName(), "None");
+            // 更新战斗状态
+            updateCombatStatus(attacker);
+            updateCombatStatus(victim);
 
             if (attackerProfession.contains("战士")) {
                 doZhanShi(attacker, victim,event);
@@ -239,17 +278,24 @@ public class PlayerDamageListener implements Listener {
             }
         }
     }
+    private void updateCombatStatus(Player player) {
+        combatCooldown.put(player.getUniqueId(), System.currentTimeMillis());
+    }
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
-
         Player victim = event.getEntity();
         World world = victim.getWorld();
         if (!world.getName().startsWith("bedworld")) {
             return;
         }
-        if (plugin.getUser2death().containsKey(victim.getName())) {
-            plugin.getUser2death().put(victim.getName(), plugin.getUser2death().get(victim.getName()) + 1);
-        }else {
+        try {
+            if (plugin.getUser2death().containsKey(victim.getName())) {
+                plugin.getUser2death().put(victim.getName(), plugin.getUser2death().get(victim.getName()) + 1);
+            } else {
+                plugin.getUser2death().put(victim.getName(), 1);
+            }
+        }catch (Exception e) {
+            plugin.re();
             plugin.getUser2death().put(victim.getName(), 1);
         }
         // 清空玩家背包
@@ -274,49 +320,59 @@ public class PlayerDamageListener implements Listener {
                 killer.sendTitle("§c§l斩杀!","x" + swordSaintDamageBuff.get(killer.getUniqueId()).multiplier);
             }
         }
-
-        if (userNeed.contains(victim.getName())) {
-            PotionEffect strength = new PotionEffect(
-                    PotionEffectType.INCREASE_DAMAGE,
-                    Integer.MAX_VALUE,
-                    0,
-                    true,
-                    true
-            );
-            PotionEffect haste = new PotionEffect(
-                    PotionEffectType.FAST_DIGGING, // 急迫
-                    60, // 3秒
-                    254, // 255级
-                    true,
-                    true
-            );
-
-            victim.addPotionEffect(strength);
-            victim.addPotionEffect(haste);
-            victim.sendMessage("§a你复活后恢复了永久力量增益！");
-        }else{
-            // 给予 2 秒的 255 级力量和急迫
-            PotionEffect strength = new PotionEffect(
-                    PotionEffectType.INCREASE_DAMAGE, // 力量
-                    40, // 2秒 = 40 ticks (20 ticks = 1秒)
-                    254, // 255级 = 254（等级从0开始计算）
-                    true, // 显示粒子效果
-                    true // 覆盖已有效果
-            );
-
-            PotionEffect haste = new PotionEffect(
-                    PotionEffectType.FAST_DIGGING, // 急迫
-                    60, // 3秒
-                    254, // 255级
-                    true,
-                    true
-            );
-
-            victim.addPotionEffect(strength);
-            victim.addPotionEffect(haste);
-
-            victim.sendMessage("§c你复活后获得了 2 秒的 255 级力量和急迫！");
+    }
+    @EventHandler
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        Player victim = event.getPlayer();
+        if (!victim.getWorld().getName().startsWith("bedworld")) {
+            return;
         }
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            // 你的原有代码
+            if (userNeed.containsKey(victim.getName())) {
+                PotionEffect strength = new PotionEffect(
+                        PotionEffectType.INCREASE_DAMAGE,
+                        Integer.MAX_VALUE,
+                        userNeed.get(victim.getName()),
+                        true,
+                        true
+                );
+                PotionEffect haste = new PotionEffect(
+                        PotionEffectType.FAST_DIGGING, // 急迫
+                        60, // 3秒
+                        50, // 255级
+                        true,
+                        true
+                );
+
+                victim.addPotionEffect(strength);
+                victim.addPotionEffect(haste);
+                victim.sendMessage("§a你复活后恢复了永久力量增益！");
+            }else{
+                // 给予 2 秒的 255 级力量和急迫
+                PotionEffect strength = new PotionEffect(
+                        PotionEffectType.INCREASE_DAMAGE, // 力量
+                        40, // 2秒 = 40 ticks (20 ticks = 1秒)
+                        50, // 255级 = 254（等级从0开始计算）
+                        true, // 显示粒子效果
+                        true // 覆盖已有效果
+                );
+
+                PotionEffect haste = new PotionEffect(
+                        PotionEffectType.FAST_DIGGING, // 急迫
+                        60, // 3秒
+                        50, // 255级
+                        true,
+                        true
+                );
+
+                victim.addPotionEffect(strength);
+                victim.addPotionEffect(haste);
+
+                victim.sendMessage("§c你复活后获得了 2 秒的 255 级力量和急迫！");
+            }
+        }, 1L); // 延迟2tick
+
     }
 
     @EventHandler
@@ -374,26 +430,12 @@ public class PlayerDamageListener implements Listener {
         }
     }
     private void doJianShen(Player attacker, Player victim,EntityDamageByEntityEvent event) {
-        if (random.nextDouble() > 0.2) {
+        if (random.nextDouble() > 0.4) {
             return;
         }
 
         // 获取当前的力量等级
         int currentLevel = 1;
-        boolean found = false;
-
-        for (PotionEffect effect : attacker.getActivePotionEffects()) {
-            if (effect.getType() == PotionEffectType.INCREASE_DAMAGE) {
-                currentLevel = effect.getAmplifier() + 1; // Amplifier 是从 0 开始
-                found = true;
-                break;
-            }
-        }
-
-        // 最大到 V 级
-        if (currentLevel >= 5) {
-            return;
-        }
 
         PotionEffect powerEffect = new PotionEffect(PotionEffectType.INCREASE_DAMAGE, 200, currentLevel);
         attacker.addPotionEffect(powerEffect);
@@ -416,11 +458,44 @@ public class PlayerDamageListener implements Listener {
         }
     }
     private void doRenZe(Player player) {
+        getIsNeedExecute().put(player,true);
         Vector direction = player.getLocation().getDirection().normalize(); // 获取视角方向单位向量
-        player.setVelocity(direction.multiply(6)); // 初始速度设为 10 倍方向向量
+        Vector upward = new Vector(0, 1, 0); // 向上方向向量（Y轴正方向）
+        Vector totalVelocity = direction.multiply(3).add(upward.multiply(1)); // 添加 Y 轴方向力度 4
+        player.setVelocity(totalVelocity); // 设置合成速度
 
         player.sendMessage("§d你使用忍者技能，技能效果已触发!");
+
+        //5s后移除
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (getIsNeedExecute().get(player)) {
+                player.setVelocity(new Vector(0, 0, 0));
+                player.sendMessage("§d你使用忍者技能，技能效果已移除!");
+                getIsNeedExecute().put(player,false);
+            }
+        }, 5 * 20L);
+        //30s后显示冷却结束
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!getIsNeedExecute().get(player)) {
+                player.sendMessage("§d忍者技能，技能冷却结束!");
+            }
+        }, 30 * 20L);
     }
+    @EventHandler
+    public void onPlayerDropItem(org.bukkit.event.player.PlayerDropItemEvent event) {
+        Player player = event.getPlayer();
+        World world = player.getWorld();
+
+        if (!world.getName().startsWith("bedworld")) {
+            return;
+        }
+
+        if (isInCombat(player)) {
+            event.setCancelled(true); // 取消丢物品操作
+            player.sendMessage("§c你正处于战斗状态，无法丢弃物品！");
+        }
+    }
+
     private void doZhanShi(Player attacker, Player victim,EntityDamageByEntityEvent event) {
         double damage = event.getDamage(); // 获取当前伤害值
         event.setDamage(damage*1.15);
@@ -464,7 +539,50 @@ public class PlayerDamageListener implements Listener {
         // 判断是否在 135° ~ 225° 范围内
         return angleDeg >= 135 && angleDeg <= 225;
     }
+    @EventHandler
+    public void onItemSpawn(org.bukkit.event.entity.ItemSpawnEvent event) {
+        World world = event.getEntity().getWorld();
 
+        // 只在 bedworld 开头的世界生效
+        if (!world.getName().startsWith("bedworld")) {
+            return;
+        }
+
+        ItemStack itemStack = event.getEntity().getItemStack();
+
+        // 遍历附近实体，寻找相同类型的掉落物进行合并
+        for (org.bukkit.entity.Item nearbyItem : world.getEntitiesByClass(org.bukkit.entity.Item.class)) {
+            if (nearbyItem == event.getEntity()) continue;
+
+            ItemStack nearbyStack = nearbyItem.getItemStack();
+
+            // 判断是否可以合并（物品类型和NBT相同）
+            if (itemStack.isSimilar(nearbyStack) && nearbyItem.getPickupDelay() <= 0) {
+                if (event.getEntity().getLocation().distance(nearbyItem.getLocation()) <= 2.0) {
+                    int combinedAmount = itemStack.getAmount() + nearbyStack.getAmount();
+
+                    if (combinedAmount <= itemStack.getMaxStackSize()) {
+                        // 合并成功，删除当前掉落物，更新附近的掉落物数量
+                        nearbyStack.setAmount(combinedAmount);
+                        nearbyItem.setItemStack(nearbyStack);
+                        event.getEntity().remove(); // 删除新生成的掉落物
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean isInCombat(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (!combatCooldown.containsKey(uuid)) {
+            return false;
+        }
+        long lastCombatTime = combatCooldown.get(uuid);
+        long currentTime = System.currentTimeMillis();
+        // 如果最后一次战斗在 3 秒内，则视为处于战斗状态
+        return (currentTime - lastCombatTime) < 3000;
+    }
 
     private boolean hasCooldown(Player player) {
         UUID uuid = player.getUniqueId();
@@ -479,14 +597,21 @@ public class PlayerDamageListener implements Listener {
         return false;
     }
     private double getRating(String name) {
-        long addr  = plugin.getUser2addr().getOrDefault(name, 0L);
-        double addr2k = addr / 40.0;
-        int kill = plugin.getUser2kill().getOrDefault(name, 0);
-        int play = plugin.getPlays().getOrDefault(name, 0);
-        int death = plugin.getUser2kill().getOrDefault(name, 0);
-        int k_d = kill - death;
-        double kd = (double) kill / death;
-        return (kd + addr2k) / death * k_d / (k_d +1);
+        try {
+            if (!plugin.getUser2addr().containsKey(name)){
+                return 1.0;
+            }
+            long addr  = plugin.getUser2addr().getOrDefault(name, 0L) + 1;
+            double addr2k = addr / 40.0;
+            int kill = plugin.getUser2kill().getOrDefault(name, 0) + 1;
+            int play = plugin.getPlays().getOrDefault(name, 0) + 1;
+            int death = plugin.getUser2kill().getOrDefault(name, 0) + 1;
+            int k_d = kill - death;
+            double kd = (double) kill / death;
+            return (kd + addr2k) / death * k_d / (k_d +1);
+        }catch (Exception e) {
+            plugin.re();
+            return 1.0;
+        }
     }
-
 }

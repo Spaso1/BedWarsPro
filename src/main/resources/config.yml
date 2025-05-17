@@ -54,8 +54,10 @@ professions:
     cost: 3
 
 hub:
-  name: "world"
+  name: "lobbyReisa"
   protected: true
+  keep-full-health: true
+  keep-full-saturation: true
 clear:
   enabled: true
   interval_minutes: 1
@@ -64,9 +66,53 @@ scoreboard:
   enabled: true
   title: "§b§lReisaPVP"
   lines:
-    - "§e Board"
+    - "§eBoard"
     - "§d在线人数: {online_players}"
     - "§a用户名: {username}"
-    - "§bBW Rating {rating}"
+    - "§bRating {rating}"
+    - "§e金币 {value}"
     - ""
     - "§d mc.rbq.college!"
+# config.yml
+speed-check:
+  threshold: 15.0 # m/s
+  duration: 4000  # ms
+tab:
+  enabled: true
+  columns: 8  # 默认4列
+  header: |
+    &c    ReisaPVP
+  footer: |
+    &6https://rbq.college/
+    &ePowered by Reisa
+  custom_titles:
+    Spasol: "&dAdmin"
+    playerName2: "&bVIP"
+    LovelyBoyBZ: "&cC&eR&aE&bA&dT&fE"
+  groups:
+    game:
+      prefix: "&a[游戏] &r"
+      worlds: "bps*"  # 通配符匹配
+    hub:
+      prefix: "&b[大厅] &r"
+      worlds: "lobbyReisa"
+    other:
+      prefix: "&7[其他] &r"
+      worlds: "*"  # 默认匹配
+    hidden:
+      worlds: "bedworld*"  # 隐藏这些世界
+
+groups:
+  game:
+    worlds:
+      - bps*
+  hub:
+    worlds:
+      - lobbyReisa
+random-teleport:
+  enabled: true
+  search-range: 500
+  max-attempts: 20
+  min-y: 80
+  resistance-effect-duration: 60 # ticks
+  resistance-effect-level: 4     # level 5
