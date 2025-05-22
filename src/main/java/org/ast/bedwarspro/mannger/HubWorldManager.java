@@ -8,6 +8,7 @@ import com.comphenix.protocol.wrappers.WrappedChatComponent;
 import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import org.ast.bedwarspro.BedWarsPro;
 import org.ast.bedwarspro.been.TabGroup;
+import org.ast.bedwarspro.been.User;
 import org.ast.bedwarspro.gui.GameMenuGUI;
 import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -47,6 +48,7 @@ public class HubWorldManager implements Listener {
     private int tabColumns;
     private final Map<String, TabGroup> tabGroups = new HashMap<>();
     private static final String WORLD_NAME = "bps_w_s";
+    private final Map<Player, Map<String, Integer>> cachedScoreboardLines = new HashMap<>();
 
     public HubWorldManager(BedWarsPro plugin) {
         this.plugin = plugin;
@@ -307,7 +309,7 @@ public class HubWorldManager implements Listener {
             }
         }
         if (!event.getTo().equals(event.getFrom())) {
-            updatePlayerVisibility(event.getPlayer());
+            //updatePlayerVisibility(event.getPlayer());
         }
     }
 
@@ -345,7 +347,7 @@ public class HubWorldManager implements Listener {
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
         Player player = (Player) event.getPlayer();
-        if (isInHubWorld(player)) {
+        if (isInHubWorldOrBPS(player)) {
             Bukkit.getScheduler().runTask(plugin, () -> setCustomScoreboard(player));
         }
     }
@@ -383,7 +385,7 @@ public class HubWorldManager implements Listener {
     // 刷新所有在大厅中的玩家的记分板
     public void updateAllPlayersScoreboards() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (isInHubWorld(player)) {
+            if (isInHubWorldOrBPS(player)) {
                 PersistentScoreboardManager.clear(player.getUniqueId());
                 setCustomScoreboard(player);
             }
@@ -403,24 +405,22 @@ public class HubWorldManager implements Listener {
                         .replace("{username}", player.getName())
                         .replace("{rating}", String.format("%.2f", rating))
                         .replace("{profession}", profession)
-                        .replace("{value}",plugin.getCoins(player) + "")
+                        .replace("{value}",plugin.getUser(player.getName()).getCoins() + "")
         );
     }
 
     private double getRating(String name) {
         try {
-            if (!plugin.getUser2addr().containsKey(name)){
-                return 1.0;
-            }
-            long addr  = plugin.getUser2addr().getOrDefault(name, 0L) + 1;
+            User user = plugin.getUser(name);
+            long addr  = user.getAddr();
             double addr2k = addr / 40.0;
-            int kill = plugin.getUser2kill().getOrDefault(name, 0) + 1;
-            int death = plugin.getUser2death().getOrDefault(name, 0) + 1;
+            int kill = user.getKills() + 1;
+            int death = user.getDeaths() + 1;
             int k_d = kill - death;
             double kd = (double) kill / death;
             return (kd + addr2k) / death * (k_d+1) / (k_d +2);
         }catch (Exception e) {
-           // plugin.re();
+            // plugin.re();
             e.printStackTrace();
             return 1.0;
         }
@@ -446,12 +446,15 @@ public class HubWorldManager implements Listener {
         tabColumns = config.getInt("tab.columns", 4);
 
         customTitles.clear();
-        if (config.isConfigurationSection("tab.custom_titles")) {
-            for (String playerName : config.getConfigurationSection("tab.custom_titles").getKeys(false)) {
-                customTitles.put(playerName, translateColors(config.getString("tab.custom_titles." + playerName)));
-            }
-        }
+        Map<String,User> m = plugin.getUserData();
 
+        //设置前缀
+        for (Map.Entry<String, User> entry : m.entrySet()) {
+            String playerName = entry.getKey();
+            User user = entry.getValue();
+            String title = user.getUse_title(); // 取第一个称号
+            customTitles.put(playerName, translateColors(title));
+        }
         // 读取分组配置
         tabGroups.clear();
         if (config.isConfigurationSection("tab.groups")) {
@@ -467,7 +470,10 @@ public class HubWorldManager implements Listener {
         if (worldName.startsWith("bps")) {
             return true;
         }
-        return worldName.equalsIgnoreCase(hubWorldName) || worldName.startsWith("bedworld");
+        if (worldName.startsWith("bedworld")) {
+            return false;
+        }
+        return worldName.equals(hubWorldName);
     }
 
     private void sendTabHeaderFooter(Player player, String header, String footer) {
@@ -533,24 +539,35 @@ public class HubWorldManager implements Listener {
             if (isBedWorld) {
                 // 如果当前玩家在 bedworld，则仅允许同世界玩家看到
                 if (online.getWorld().getName().equals(worldName)) {
-                    online.showPlayer(player);
-                    player.showPlayer(online);
+                    if (!player.canSee(online)) {
+                        player.showPlayer(online);
+                    }
+                    if (!online.canSee(player)) {
+                        online.showPlayer(player);
+                    }
                 } else {
-                    online.hidePlayer(player);
-                    player.hidePlayer(online);
+                    if (player.canSee(online)) {
+                        player.hidePlayer(online);
+                    }
+                    if (online.canSee(player)) {
+                        online.hidePlayer(player);
+                    }
                 }
             } else {
                 // 如果不在 bedworld，确保所有在线玩家都能看到他
-                online.showPlayer(player);
-                player.showPlayer(online);
+                if (!player.canSee(online)) {
+                    player.showPlayer(online);
+                }
+                if (!online.canSee(player)) {
+                    online.showPlayer(player);
+                }
+
+                // 更新 bedworld 玩家名称
                 if (online.getWorld().getName().startsWith("bedworld")) {
-
-                    String originalName = online.getName();
-
-                    // 构建 BedWorld 玩家在大厅中应显示的名字
-                    String bedWorldDisplayName = "[§dBedWars§r]§a" + originalName;
-                    online.setPlayerListName(bedWorldDisplayName);
-                }else{
+                    String bedWorldDisplayName = "[§dBedWars§r]§a" + online.getName();
+                    if (!online.getPlayerListName().equals(bedWorldDisplayName)) {
+                        online.setPlayerListName(bedWorldDisplayName);
+                    }
                 }
             }
         }

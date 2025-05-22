@@ -19,6 +19,10 @@ commands:
     usage: /plot <create|info|list|rule|own|tp>
     permission: bedwarspro.use.plot
     aliases: [plot]
+  settle:
+    description: 地标
+    usage: /settle <create|remove|list|tp>
+    permission: bedwarspro.use.settle
   lobby:
     description: Hub command
     usage: /lobby

@@ -1,5 +1,7 @@
 package org.ast.bedwarspro.command;
 
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.ast.bedwarspro.gui.MarketGUI;
 import org.ast.bedwarspro.gui.OfficialShopGUI;
 import org.ast.bedwarspro.mannger.MarketManager;
@@ -36,6 +38,35 @@ public class BPSuivialCommand implements CommandExecutor {
 
         if (args.length == 0) {
             player.sendMessage("§c请提供子命令: menu, enchant, randomTp, tp, hub");
+            return true;
+        }
+        if (args[0].equals("accepttp")) {
+            Player target = (Player) sender;
+            if (args.length < 2) {
+                target.sendMessage("§c用法: /bps accepttp <玩家>");
+                return true;
+            }
+
+            String requesterName = args[1];
+            if (!pendingRequests.containsKey(target.getName()) || !pendingRequests.get(target.getName()).equals(requesterName)) {
+                target.sendMessage("§c没有来自该玩家的传送请求");
+                return true;
+            }
+
+            Player requester = Bukkit.getPlayer(requesterName);
+            if (requester == null || !requester.isOnline()) {
+                target.sendMessage("§c请求者已离线");
+                pendingRequests.remove(target.getName());
+                return true;
+            }
+
+            // 执行传送
+            requester.teleport(target.getLocation());
+            target.sendMessage("§a你已允许 §f" + requester.getName() + " §a传送到你身边");
+            requester.sendMessage("§a你已成功传送到 §f" + target.getName() + " §a身边");
+
+            // 清除请求
+            pendingRequests.remove(target.getName());
             return true;
         }
         if (args.length >= 1 && args[0].equalsIgnoreCase("market")) {
@@ -191,6 +222,15 @@ public class BPSuivialCommand implements CommandExecutor {
             player.sendMessage("§c你不能传送给自己");
             return;
         }
+        if (!player.getWorld().getName().startsWith("bps")) {
+            return;
+        }
+
+        //判断世界是不是bps开头
+        if (!target.getWorld().getName().startsWith("bps")) {
+            player.sendMessage("§c目标玩家不在指定的世界中");
+            return;
+        }
 
         // 记录请求
         pendingRequests.put(target.getName(), player.getName());
@@ -198,23 +238,17 @@ public class BPSuivialCommand implements CommandExecutor {
         // 发送确认信息给目标玩家
         target.sendMessage(" ");
         target.sendMessage("§7--------------------");
-        target.sendMessage("§a[确认] 玩家 " + player.getName() + " 想要传送到你身边");
-        target.sendMessage("§a点击此处 §b(✔) §a确认传送");
+
+        // 创建可点击的文本
+        TextComponent message = new TextComponent("§a[点击此处] 同意传送请求");
+        message.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/bps accepttp " + player.getName()));
+        target.spigot().sendMessage(message);
+
         target.sendMessage("§7--------------------");
         target.sendMessage(" ");
 
-        // 创建可点击物品（✔）
-// 使用 1.8.8 支持的替代材料
-        ItemStack confirmItem = new ItemStack(Material.getMaterial("STAINED_CLAY"), (byte) 5);
-        ItemMeta meta = confirmItem.getItemMeta();
-        meta.setDisplayName("§a✔ 确认传送");
-        confirmItem.setItemMeta(meta);
-
-        target.getInventory().addItem(confirmItem); // 可选：临时加入确认物品
+        player.sendMessage("§a已向 §f" + target.getName() + " §a发送传送请求");
     }
-
-
-
     // 返回大厅
     private void teleportToHub(Player player) {
         World hubWorld = Bukkit.getWorld("world"); // 替换为你的大厅世界名称

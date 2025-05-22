@@ -65,6 +65,7 @@ public class PlotCreateCommand implements CommandExecutor {
                 }
             }
             createCuboid(args[1],player,new SerializableLocation(points[0]), new SerializableLocation(points[1]));
+
             return true;
         }
 
@@ -160,8 +161,9 @@ public class PlotCreateCommand implements CommandExecutor {
             player.sendMessage("§c地块太大了！");
             return;
         }
-        if (plugin.userCoins.get(player.getName()) >= blockCount){
-            plugin.userCoins.put(player.getName(),plugin.userCoins.get(player.getName())-blockCount);
+        if (plugin.getUser(player.getName()).getCoins() >= blockCount){
+            BedWarsPro plugin = BedWarsPro.getPlugin(BedWarsPro.class);
+            plugin.deductCoins(player,Long.parseLong(String.valueOf(blockCount)));
             player.sendMessage("§a地块创建成功，扣除" + blockCount + "金币");
         }else {
             player.sendMessage("§c金币不足，无法创建地块！");
