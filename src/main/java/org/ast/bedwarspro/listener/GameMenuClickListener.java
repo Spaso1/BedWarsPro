@@ -162,7 +162,7 @@ public class GameMenuClickListener implements Listener {
 
             // Check if the player has enough coins
             BedWarsPro plugin = BedWarsPro.getPlugin(BedWarsPro.class);
-            long playerCoins = plugin.userCoins.getOrDefault(player.getName(), 0L);
+            long playerCoins = plugin.getUser(player.getName()).getCoins();
 
             //判断是不是本人点
             if (player.getName().equals(seller)) {
@@ -185,8 +185,11 @@ public class GameMenuClickListener implements Listener {
             }
 
             // Deduct coins and transfer the item
-            plugin.userCoins.put(player.getName(), playerCoins - (long) price);
-            plugin.userCoins.put(seller, plugin.userCoins.getOrDefault(seller, 0L) + (long) price);
+
+            plugin.getUser(player.getName()).setCoins(playerCoins - (long) price);
+            plugin.getUser(seller).setCoins(plugin.getUser(seller).getCoins() + (long) price);
+            //plugin.userCoins.put(player.getName(), playerCoins - (long) price);
+            //plugin.userCoins.put(seller, plugin.userCoins.getOrDefault(seller, 0L) + (long) price);
 
             player.sendMessage("§aYou purchased " + clickedItem.getType() + " for §e" + price + " coins!");
             MarketManager.removeItem(marketItem);
@@ -228,7 +231,7 @@ public class GameMenuClickListener implements Listener {
 
                 // Add coins to the player's balance
                 BedWarsPro plugin = BedWarsPro.getPlugin(BedWarsPro.class);
-                plugin.userCoins.put(player.getName(), (long) (price + plugin.userCoins.getOrDefault(player.getName(), 0L)));
+                plugin.getUser(player.getName()).setCoins(plugin.getUser(player.getName()).getCoins() + (long) price);
             }
         }
     }

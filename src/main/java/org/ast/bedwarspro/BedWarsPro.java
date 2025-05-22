@@ -23,7 +23,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
-import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -33,14 +32,16 @@ public final class BedWarsPro extends JavaPlugin {
     private List<String> professionList = new ArrayList<>();
     private Map<String,String> userPro = new HashMap<>();
     private final File dataFolder = new File(getDataFolder(), "data");
-    private final File whiteListFile = new File(dataFolder, "white.json");
-    private final File killFile = new File(dataFolder, "user2kill.json");
-    private final File addrFile = new File(dataFolder, "user2addr.json");
-    private final File user2deathFile = new File(dataFolder, "user2death.json");
-
+    private final File settleDataFile = new File(dataFolder, "settle.json");
+    private Map<String,ArrayList<String>> settleData = new HashMap<>();
     private Map<String, User> userData = new HashMap<>();
     public User getUser(String name) {
-        return userData.getOrDefault(name, new User(name));
+        if (userData.containsKey(name)) {
+            return userData.get(name);
+        }
+        User user = new User(name);
+        userData.put(name, user);
+        return userData.get(name);
     }
     public void setUser(User user) {
         userData.put(user.getName(), user);
@@ -53,7 +54,6 @@ public final class BedWarsPro extends JavaPlugin {
     private final File claimedRewardsFile = new File(dataFolder, "claimed_rewards.json");
 
     private final Gson gson = new Gson();
-    public Map<String, Long> userCoins = new HashMap<>(); // 金币存储
     private final File userCoinsFile = new File(dataFolder, "userCoinsFile.json");
     //region 数据访问方法
     public boolean hasEnoughCoins(Player player, long amount) {
@@ -76,109 +76,27 @@ public final class BedWarsPro extends JavaPlugin {
         try {
             if (!dataFolder.exists()) dataFolder.mkdirs();
 
+            if (!settleDataFile.exists()) {
+                try (BufferedReader reader = new BufferedReader(new FileReader(settleDataFile))) {
+                    Gson gson = new Gson();
+                    settleData = gson.fromJson(reader, new TypeToken<Map<String, ArrayList<String>>>(){}.getType());
+                }
+            }
             if (userDataFile.exists()) {
                 try (BufferedReader reader = new BufferedReader(new FileReader(userDataFile))) {
                     Gson gson = new Gson();
-                    userData = gson.fromJson(reader, new TypeToken<Map<String, User>>(){}.getType());
-                }
-            }
-
-            if (killFile.exists()) {
-                Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
-                Map<String, Integer> kills = gson.fromJson(new FileReader(killFile), mapType);
-                if (kills != null && !kills.isEmpty()) {
-                    if (kills != null) {
-                        for (Map.Entry<String, Integer> entry : kills.entrySet()) {
-                            String name = entry.getKey();
-                            User user = userData.getOrDefault(name, new User(name));
-                            user.setKills(entry.getValue());
-                            userData.put(name, user);
+                    String json = reader.lines().reduce("", String::concat);
+                    if (json.isEmpty()) {
+                        System.out.println("File is empty or invalid.");
+                    } else {
+                        userData = gson.fromJson(json, new TypeToken<Map<String, User>>() {}.getType());
+                        for (Map.Entry<String, User> entry : userData.entrySet()) {
+                            User user = entry.getValue();
+                            System.out.println("User: " + user.getName() + ", Coins: " + user.getCoins());
                         }
                     }
-                    System.out.println("Yes:" + kills.size());
-                } else {
-                    System.out.println("NullError:" + killFile.getName());
-                }
-            }
-
-            if (addrFile.exists()) {
-                Type mapType = new TypeToken<Map<String, Long>>(){}.getType(); // 修改为 Map<String, Long>
-                Map<String, Long> addresses = gson.fromJson(new FileReader(addrFile), mapType);
-                if (addresses != null && !addresses.isEmpty()) {
-                    if (addresses != null) {
-                        for (Map.Entry<String, Long> entry : addresses.entrySet()) {
-                            String name = entry.getKey();
-                            User user = userData.getOrDefault(name, new User(name));
-                            user.setAddr(entry.getValue());
-                            userData.put(name, user);
-                        }
-                    }
-                    System.out.println("Yes:" + addresses.size());
-                }else {
-                    System.out.println("NullError:" + addrFile.getName());
-                }
-            }
-            if (playFile.exists()) {
-                readPlayFile();
-            } else {
-                getLogger().warning("playFile 不存在: " + playFile.getAbsolutePath());
-            }
-
-            if (user2deathFile.exists()) {
-                Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
-                Map<String, Integer> deaths = gson.fromJson(new FileReader(user2deathFile), mapType);
-                if (deaths != null && !deaths.isEmpty()) {
-                    if (deaths != null) {
-                        for (Map.Entry<String, Integer> entry : deaths.entrySet()) {
-                            String name = entry.getKey();
-                            User user = userData.getOrDefault(name, new User(name));
-                            user.setDeaths(entry.getValue());
-                            userData.put(name, user);
-                        }
-                    }
-                }else {
-                    //输出内容
-                    System.out.println("Content:" + gson.toJson(deaths));
-                    System.out.println("NullError:" + user2deathFile.getName());
-                }
-            }
-            if (userCoinsFile.exists()) {
-                Type mapType = new TypeToken<Map<String, Long>>(){}.getType();
-                Map<String, Long> coins = gson.fromJson(new FileReader(userCoinsFile), mapType);
-                if (coins != null && !coins.isEmpty()) {
-                    userCoins = (coins);
-                    if (coins != null) {
-                        for (Map.Entry<String, Long> entry : coins.entrySet()) {
-                            String name = entry.getKey();
-                            User user = userData.getOrDefault(name, new User(name));
-                            user.setCoins(entry.getValue());
-                            userData.put(name, user);
-                        }
-                    }
-                }else {
-                    //输出内容
-                    System.out.println("Content:" + gson.toJson(coins));
-                    System.out.println("NullError:" + userCoinsFile.getName());
-                }
-            }
-            if (claimedRewardsFile.exists()) {
-                Type type = new TypeToken<Map<String, Set<String>>>(){}.getType();
-                Map<String, Set<String>> loaded = gson.fromJson(new FileReader(claimedRewardsFile), type);
-                if (loaded != null) {
-                    for (Map.Entry<String, Set<String>> entry : loaded.entrySet()) {
-                        String name = entry.getKey();
-                        User user = userData.getOrDefault(name, new User(name));
-                        user.setClaimedRewards(entry.getValue());
-                        userData.put(name, user);
-                    }
-                    claimedRewards = loaded;
-                }
-            }
-
-            if (userDataFile.exists()) {
-                try (BufferedReader reader = new BufferedReader(new FileReader(userDataFile))) {
-                    Gson gson = new Gson();
-                    userData = gson.fromJson(reader, new TypeToken<Map<String, User>>(){}.getType());
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
         } catch (Exception e) {
@@ -236,6 +154,15 @@ public final class BedWarsPro extends JavaPlugin {
         }
         return false;
     }
+
+    public Map<String, ArrayList<String>> getSettleData() {
+        return settleData;
+    }
+
+    public void setSettleData(Map<String, ArrayList<String>> settleData) {
+        this.settleData = settleData;
+    }
+
     public void asyncReadPlayFile() {
         Bukkit.getScheduler().runTaskAsynchronously(this, this::readPlayFile);
     }
@@ -253,7 +180,14 @@ public final class BedWarsPro extends JavaPlugin {
                     writer.close();
                     getLogger().info("已保存用户数据！");
                 }
+                try (FileWriter writer = new FileWriter(settleDataFile)) {
+                    writer.write(gson.toJson(settleData));
+                    writer.flush();
+                    writer.close();
+                    getLogger().info("已保存地标！");
+                }
             }catch (IOException e) {}
+
         } catch (Exception e) {
             getLogger().severe("保存用户数据失败！");
             e.printStackTrace();
@@ -269,6 +203,7 @@ public final class BedWarsPro extends JavaPlugin {
         getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.plot", PermissionDefault.TRUE));
         getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.auth", PermissionDefault.TRUE));
         getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.settle", PermissionDefault.TRUE));
+        loadData();
 
 // Register custom enchantment
         // Register event listener
@@ -282,6 +217,7 @@ public final class BedWarsPro extends JavaPlugin {
         InventoryStorage inventoryStorage = new InventoryStorage(this.getDataFolder());
 // 在 onEnable 方法中添加
         Bukkit.getPluginManager().registerEvents(new RewardGUIListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new ChatListener(), this);
 
         Bukkit.getPluginManager().registerEvents(new InventorySyncListener(groupWorldManager, inventoryStorage), this);
 // 注册事件监听器
@@ -340,7 +276,6 @@ public final class BedWarsPro extends JavaPlugin {
         }, 20L, 20L); // 每秒检查一次
         // 注册 /hub 指令
         // 加载击杀和地址数据
-        loadData();
         // 启动定时清除任务
         if (getConfig().getBoolean("clear.enabled")) {
             int intervalMinutes = getConfig().getInt("clear.interval_minutes", 1);
@@ -533,5 +468,9 @@ public final class BedWarsPro extends JavaPlugin {
     }
     public FileConfiguration getGameConfig() {
         return getConfig();
+    }
+
+    public Map<String, User> getUserData() {
+        return userData;
     }
 }

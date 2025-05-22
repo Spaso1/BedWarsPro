@@ -1,6 +1,7 @@
 package org.ast.bedwarspro.command;
 
 import org.ast.bedwarspro.BedWarsPro;
+import org.ast.bedwarspro.been.User;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -29,8 +30,25 @@ public class EnchantCommand implements CommandExecutor {
         }
 
         Player player = (Player) commandSender;
-        addEnchantBook(player, strings[0], Integer.parseInt(strings[1]));
-        
+        if (strings[0].equals("add")) {
+            addEnchantBook(player, strings[1], Integer.parseInt(strings[2]));
+            return true;
+
+        }
+        if (strings[0].equals("save")) {
+            plugin.saveData();
+            return true;
+
+        }
+        if (strings[0].equals("load")) {
+            plugin.loadData();
+            return true;
+
+        }
+        if (strings[0].equals("setCoins")) {
+            plugin.getUser(player.getName()).setCoins(Integer.parseInt(strings[1]));
+            return true;
+        }
         return false;
     }
     private void addEnchantBook(Player player, String enchantKey, int level) {
