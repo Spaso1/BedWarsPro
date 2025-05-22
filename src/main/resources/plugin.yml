@@ -1,0 +1,35 @@
+name: BedWarsPro
+version: '${project.version}'
+main: org.ast.bedwarspro.BedWarsPro
+
+commands:
+  bp:
+    description: 起床战争辅助功能
+    usage: /bp <set|open|menu|coin|reload>
+    permission: bedwarspro.use.bp
+    aliases: [bedwars]
+
+  bps:
+    description: 生存服务器
+    usage: /bps <enchant|randomTp|tp|menu|market|offical>
+    permission: bedwarspro.use.bps
+    aliases: [bps]
+  plot:
+    description: 地皮
+    usage: /plot <create|info|list|rule|own|tp>
+    permission: bedwarspro.use.plot
+    aliases: [plot]
+  lobby:
+    description: Hub command
+    usage: /lobby
+    permission: bedwarspro.use.lobby
+  enchant:
+    description: Enchant command
+    usage: /enchant
+    permission: bedwarspro.use.enchant
+  auth:
+    description: Auth command
+    usage: /auth
+    permission: bedwarspro.use.auth
+depend:
+  - BedWars

@@ -1,0 +1,129 @@
+professions:
+  warrior:
+    name: "§c战士"
+    icon: GOLD_SWORD
+    description:
+      - "近战伤害增加15%"
+      - "3金"
+
+    cost: 3
+
+  ninja:
+    name: "§b忍者"
+    icon: SUGAR
+    description:
+      - "双击Shift可高跳"
+      - "3金"
+
+    cost: 3
+
+  archer:
+    name: "§e箭神"
+    icon: BOW
+    description:
+      - "远程攻击有概率获得力量"
+      - "3金"
+    cost: 3
+
+  swordsman:
+    name: "§c剑圣"
+    icon: DIAMOND_SWORD
+    description:
+      - "击杀敌人后获得连击伤害加成(叠加)"
+      - "3金"
+
+    cost: 3
+
+  assassin:
+    name: "§c刺客"
+    icon: IRON_SWORD
+    description:
+      - "背后攻击造成额外伤害(你看看你后面呢)"
+      - "3金"
+    cost: 3
+
+  sharpshooter:
+    name: "§b神射手"
+    icon: BOW
+    description:
+      - "远程伤害提升，命中时"
+      - "有一定几率获得闪避效果"
+      - "3金"
+    cost: 3
+
+  justice:
+    name: "§c判官"
+    icon: REDSTONE
+    description:
+      - "§b60秒cd,可以右键武器让其获取5秒的锋利X"
+      - "§c但5秒后武器会消失"
+      - "5金"
+    cost: 5
+    need: vip
+
+hub:
+  name: "lobbyReisa"
+  protected: true
+  keep-full-health: true
+  keep-full-saturation: true
+clear:
+  enabled: true
+  interval_minutes: 1
+
+scoreboard:
+  enabled: true
+  title: "§b§lReisaPVP"
+  lines:
+    - "§eBoard"
+    - "§d在线人数: {online_players}"
+    - "§a用户名: {username}"
+    - "§bRating {rating}"
+    - "§e金币 {value}"
+    - ""
+    - "§d mc.rbq.college!"
+# config.yml
+speed-check:
+  threshold: 15.0 # m/s
+  duration: 4000  # ms
+tab:
+  enabled: true
+  columns: 8  # 默认4列
+  header: |
+    &c    ReisaPVP
+  footer: |
+    &6https://rbq.college/
+    &ePowered by Reisa
+  custom_titles:
+    Spasol: "&dADMIN"
+    playerName2: "&bVIP"
+    LovelyBoyBZ: "&cC&eR&aE&bA&dT&fE"
+    APARZIVALX : "&bK&di&an&cg &fof &bWMC"
+  groups:
+    game:
+      prefix: "&a[游戏] &r"
+      worlds:
+        - "bps*"  # 通配符匹配
+        - "lobbyReisa"
+
+    other:
+      prefix: "&7[其他] &r"
+      worlds: "*"  # 默认匹配
+    hidden:
+      worlds: "bedworld*"  # 隐藏这些世界
+
+groups:
+  game:
+    worlds:
+      - bps*
+      - lobbyReisa
+
+  hub:
+    worlds:
+      - lobbyReisa
+random-teleport:
+  enabled: true
+  search-range: 500
+  max-attempts: 20
+  min-y: 80
+  resistance-effect-duration: 60 # ticks
+  resistance-effect-level: 4     # level 5
