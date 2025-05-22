@@ -3,26 +3,19 @@ package org.ast.bedwarspro;
 import com.google.common.io.Files;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import org.ast.bedwarspro.been.PlayDataWrapper;
-import org.ast.bedwarspro.been.PlayerStats;
-import org.ast.bedwarspro.command.AuthCommand;
-import org.ast.bedwarspro.command.BPSuivialCommand;
-import org.ast.bedwarspro.command.EnchantCommand;
-import org.ast.bedwarspro.command.PlotCreateCommand;
+import org.ast.bedwarspro.command.*;
 import org.ast.bedwarspro.gui.*;
 import org.ast.bedwarspro.listener.*;
 import org.ast.bedwarspro.mannger.*;
 import org.ast.bedwarspro.storage.InventoryStorage;
 import org.ast.bedwarspro.task.HubClearTask;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.permissions.Permission;
 import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -290,6 +283,11 @@ public final class BedWarsPro extends JavaPlugin {
         getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.plot", PermissionDefault.TRUE));
         getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.auth", PermissionDefault.TRUE));
 
+// Register custom enchantment
+        // Register event listener
+        Bukkit.getPluginManager().registerEvents(new SmeltingListener(), this);
+
+        getLogger().info("Custom enchantment '熔炼' has been registered!");
 
         MarketManager.loadMarketItems();
 
@@ -312,6 +310,7 @@ public final class BedWarsPro extends JavaPlugin {
         AuthCommand authCommand = new AuthCommand(authManager);
         getServer().getPluginManager().registerEvents(new AuthListener(authCommand), this);
         getCommand("auth").setExecutor(authCommand);
+        //getCommand("hack").setExecutor(new HackCommand());
 
         white = new HashMap<>();
         loadWhiteList();

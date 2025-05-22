@@ -52,7 +52,7 @@ professions:
     cost: 3
 
   justice:
-    name: "§c判官"
+    name: "c判官"
     icon: REDSTONE
     description:
       - "§b60秒cd,可以右键武器让其获取5秒的锋利X"

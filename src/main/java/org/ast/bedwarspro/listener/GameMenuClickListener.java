@@ -163,6 +163,22 @@ public class GameMenuClickListener implements Listener {
             // Check if the player has enough coins
             BedWarsPro plugin = BedWarsPro.getPlugin(BedWarsPro.class);
             long playerCoins = plugin.userCoins.getOrDefault(player.getName(), 0L);
+
+            //判断是不是本人点
+            if (player.getName().equals(seller)) {
+                //将物品下架
+                player.sendMessage("§b你拿回了自己的物品");
+                // Add the purchased item to the player's inventory
+                ItemStack purchasedItem = marketItem.toItemStack();
+                player.getInventory().addItem(purchasedItem);
+                MarketManager.removeItem(marketItem);
+                player.sendMessage("§a物品已下架");
+
+                int currentPage = Integer.parseInt(title.split(" ")[3]) - 1;
+                MarketGUI.openMarket(player, currentPage);
+                return;
+            }
+
             if (playerCoins < price) {
                 player.sendMessage("§cYou do not have enough coins!");
                 return;
