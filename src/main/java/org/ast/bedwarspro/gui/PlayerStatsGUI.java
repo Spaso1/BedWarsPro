@@ -1,6 +1,7 @@
 package org.ast.bedwarspro.gui;
 
 import org.ast.bedwarspro.BedWarsPro;
+import org.ast.bedwarspro.been.User;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -21,10 +22,11 @@ public class PlayerStatsGUI {
 
         // 获取玩家的游戏数据
         String playerName = player.getName();
-        int kills = plugin.getUser2kill().getOrDefault(playerName, 0);
-        int deaths = plugin.getUser2death().getOrDefault(playerName, 0);
-        long addr = plugin.getUser2addr().getOrDefault(playerName, 0L);
-        int plays = plugin.getPlays().getOrDefault(playerName, 0);
+        User user = plugin.getUser(playerName);
+        int kills = user.getKills();
+        int deaths = user.getDeaths();
+        long addr = user.getAddr();
+        int plays = user.getPlays();
         double rating = calculateRating(kills, deaths, addr, plays);
 
         // 设置击杀数物品
@@ -53,7 +55,7 @@ public class PlayerStatsGUI {
         ItemMeta kdRatioMeta = kdRatioItem.getItemMeta();
         kdRatioMeta.setDisplayName("§bK/D 比率");
         ArrayList<String> kdLore = new ArrayList<>();
-        kdLore.add("§7你的 K/D 比率为 §f" + String.format("%.2f", rating));
+        kdLore.add("§7你的 K/D 比率为 §f" + String.format("%.2f",(double) kills /(double) deaths));
         kdRatioMeta.setLore(kdLore);
         kdRatioItem.setItemMeta(kdRatioMeta);
         gui.setItem(14, kdRatioItem); // 放在第 2 行第 6 列

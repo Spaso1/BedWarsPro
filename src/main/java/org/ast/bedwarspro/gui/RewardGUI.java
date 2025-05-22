@@ -1,6 +1,7 @@
 package org.ast.bedwarspro.gui;
 
 import org.ast.bedwarspro.BedWarsPro;
+import org.ast.bedwarspro.been.User;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -31,10 +32,10 @@ public class RewardGUI {
         plugin.asyncReadPlayFile();
 
         Inventory gui = Bukkit.createInventory(null, 9 * MAX_ROWS, "奖励页面");
-
-        int kills = plugin.getUser2kill().getOrDefault(player.getName(), 0);
-        long damage = plugin.getUser2addr().getOrDefault(player.getName(), 0L);
-        int wins = plugin.getPlays().getOrDefault(player.getName(), 0);
+        User user = plugin.getUser(player.getName());
+        int kills = user.getKills();
+        long damage = user.getAddr();
+        int wins = user.getPlays();
         Set<String> claimedRewards = plugin.claimedRewards.getOrDefault(player.getName(), new HashSet<>());
 
         addTasks(gui, kills, damage, wins, claimedRewards,page);

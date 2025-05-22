@@ -3,6 +3,7 @@ package org.ast.bedwarspro;
 import com.google.common.io.Files;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import org.ast.bedwarspro.been.User;
 import org.ast.bedwarspro.command.*;
 import org.ast.bedwarspro.gui.*;
 import org.ast.bedwarspro.listener.*;
@@ -31,18 +32,20 @@ import static org.ast.bedwarspro.PlayerDamageListener.swordSaintDamageBuff;
 public final class BedWarsPro extends JavaPlugin {
     private List<String> professionList = new ArrayList<>();
     private Map<String,String> userPro = new HashMap<>();
-
-    private Map<String, Integer> user2kill;
-    private Map<String, Long> user2addr;
-    private Map<String, Integer> plays;
-    private Map<String, Integer> user2death;
-    private List<String> whiteList = new ArrayList<>();
-
     private final File dataFolder = new File(getDataFolder(), "data");
     private final File whiteListFile = new File(dataFolder, "white.json");
     private final File killFile = new File(dataFolder, "user2kill.json");
     private final File addrFile = new File(dataFolder, "user2addr.json");
     private final File user2deathFile = new File(dataFolder, "user2death.json");
+
+    private Map<String, User> userData = new HashMap<>();
+    public User getUser(String name) {
+        return userData.getOrDefault(name, new User(name));
+    }
+    public void setUser(User user) {
+        userData.put(user.getName(), user);
+    }
+    private final File userDataFile = new File(dataFolder, "user.json");
 
     private File playFile ;
     // 记录玩家已领取的奖励（页码-任务索引）
@@ -54,74 +57,46 @@ public final class BedWarsPro extends JavaPlugin {
     private final File userCoinsFile = new File(dataFolder, "userCoinsFile.json");
     //region 数据访问方法
     public boolean hasEnoughCoins(Player player, long amount) {
-        return userCoins.getOrDefault(player.getName(), 0L) >= amount;
+        return userData.get(player.getName()).getCoins() >= amount;
+    }
+    public void addCoins(Player player, long amount) {
+        userData.get(player.getName()).setCoins(userData.get(player.getName()).getCoins() + amount);
     }
     public void deductCoins(Player player, long amount) {
-        userCoins.put(player.getName(), userCoins.getOrDefault(player.getName(), 0L) - amount);
-    }
-    public long getCoins(Player player) {
-        return userCoins.getOrDefault(player.getName(), 0L);
-    }
-    public Map<String, Integer> getUser2death() {
-        return user2death;
-    }
-
-    public void setUser2death(Map<String, Integer> user2death) {
-        this.user2death = user2death;
-    }
-
-    public Map<String, Integer> getUser2kill() {
-        return user2kill;
-    }
-
-    public Map<String, Integer> getPlays() {
-        return plays;
-    }
-
-    public void setPlays(Map<String, Integer> plays) {
-        this.plays = plays;
-    }
-
-    public void setUser2kill(Map<String, Integer> user2kill) {
-        this.user2kill = user2kill;
-    }
-
-    public Map<String, Long> getUser2addr() {
-        return user2addr;
+        userData.get(player.getName()).setCoins(userData.get(player.getName()).getCoins() - amount);
     }
     public static Map<String,Boolean> white = new HashMap<>();
 
-    public List<String> getWhiteList() {
-        return whiteList;
-    }
-
-    public void setWhiteList(List<String> whiteList) {
-        this.whiteList = whiteList;
-    }
-
-    public void setUser2addr(Map<String, Long> user2addr) {
-        this.user2addr = user2addr;
-    }
     //endregion
     public void re() {
-        user2kill = new HashMap<>();
-        user2addr = new HashMap<>();
-        this.plays = new HashMap<>();
-        user2death = new HashMap<>();
-
+        loadData();
     }
     // 加载数据
     public void loadData() {
         try {
             if (!dataFolder.exists()) dataFolder.mkdirs();
+
+            if (userDataFile.exists()) {
+                try (BufferedReader reader = new BufferedReader(new FileReader(userDataFile))) {
+                    Gson gson = new Gson();
+                    userData = gson.fromJson(reader, new TypeToken<Map<String, User>>(){}.getType());
+                }
+            }
+
             if (killFile.exists()) {
                 Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
                 Map<String, Integer> kills = gson.fromJson(new FileReader(killFile), mapType);
                 if (kills != null && !kills.isEmpty()) {
-                    user2kill = (kills);
+                    if (kills != null) {
+                        for (Map.Entry<String, Integer> entry : kills.entrySet()) {
+                            String name = entry.getKey();
+                            User user = userData.getOrDefault(name, new User(name));
+                            user.setKills(entry.getValue());
+                            userData.put(name, user);
+                        }
+                    }
                     System.out.println("Yes:" + kills.size());
                 } else {
-                    System.out.println("Content:" + gson.toJson(user2kill));
                     System.out.println("NullError:" + killFile.getName());
                 }
             }
@@ -130,10 +105,16 @@ public final class BedWarsPro extends JavaPlugin {
                 Type mapType = new TypeToken<Map<String, Long>>(){}.getType(); // 修改为 Map<String, Long>
                 Map<String, Long> addresses = gson.fromJson(new FileReader(addrFile), mapType);
                 if (addresses != null && !addresses.isEmpty()) {
-                    user2addr = (addresses);
+                    if (addresses != null) {
+                        for (Map.Entry<String, Long> entry : addresses.entrySet()) {
+                            String name = entry.getKey();
+                            User user = userData.getOrDefault(name, new User(name));
+                            user.setAddr(entry.getValue());
+                            userData.put(name, user);
+                        }
+                    }
                     System.out.println("Yes:" + addresses.size());
                 }else {
-                    System.out.println("Content:" + gson.toJson(user2addr));
                     System.out.println("NullError:" + addrFile.getName());
                 }
             }
@@ -147,7 +128,14 @@ public final class BedWarsPro extends JavaPlugin {
                 Type mapType = new TypeToken<Map<String, Integer>>(){}.getType();
                 Map<String, Integer> deaths = gson.fromJson(new FileReader(user2deathFile), mapType);
                 if (deaths != null && !deaths.isEmpty()) {
-                    user2death = (deaths);
+                    if (deaths != null) {
+                        for (Map.Entry<String, Integer> entry : deaths.entrySet()) {
+                            String name = entry.getKey();
+                            User user = userData.getOrDefault(name, new User(name));
+                            user.setDeaths(entry.getValue());
+                            userData.put(name, user);
+                        }
+                    }
                 }else {
                     //输出内容
                     System.out.println("Content:" + gson.toJson(deaths));
@@ -159,6 +147,14 @@ public final class BedWarsPro extends JavaPlugin {
                 Map<String, Long> coins = gson.fromJson(new FileReader(userCoinsFile), mapType);
                 if (coins != null && !coins.isEmpty()) {
                     userCoins = (coins);
+                    if (coins != null) {
+                        for (Map.Entry<String, Long> entry : coins.entrySet()) {
+                            String name = entry.getKey();
+                            User user = userData.getOrDefault(name, new User(name));
+                            user.setCoins(entry.getValue());
+                            userData.put(name, user);
+                        }
+                    }
                 }else {
                     //输出内容
                     System.out.println("Content:" + gson.toJson(coins));
@@ -169,15 +165,20 @@ public final class BedWarsPro extends JavaPlugin {
                 Type type = new TypeToken<Map<String, Set<String>>>(){}.getType();
                 Map<String, Set<String>> loaded = gson.fromJson(new FileReader(claimedRewardsFile), type);
                 if (loaded != null) {
+                    for (Map.Entry<String, Set<String>> entry : loaded.entrySet()) {
+                        String name = entry.getKey();
+                        User user = userData.getOrDefault(name, new User(name));
+                        user.setClaimedRewards(entry.getValue());
+                        userData.put(name, user);
+                    }
                     claimedRewards = loaded;
                 }
             }
-            if (whiteListFile.exists()) {
-                try (BufferedReader reader = new BufferedReader(new FileReader(whiteListFile))) {
+
+            if (userDataFile.exists()) {
+                try (BufferedReader reader = new BufferedReader(new FileReader(userDataFile))) {
                     Gson gson = new Gson();
-                    whiteList = gson.fromJson(reader, new TypeToken<List<String>>(){}.getType());
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    userData = gson.fromJson(reader, new TypeToken<Map<String, User>>(){}.getType());
                 }
             }
         } catch (Exception e) {
@@ -229,8 +230,6 @@ public final class BedWarsPro extends JavaPlugin {
                     playsMap.put(name, wins);
                 }
             }
-
-            this.plays = playsMap;
         } catch (Exception e) {
             getLogger().severe("读取 playFile 出错！");
             e.printStackTrace();
@@ -247,27 +246,14 @@ public final class BedWarsPro extends JavaPlugin {
     public void asyncSaveData() {
         try {
             if (!dataFolder.exists()) dataFolder.mkdirs();
-            try (FileWriter killWriter = new FileWriter(killFile)) {
-                killWriter.write(gson.toJson(user2kill));
-            }
-            try (FileWriter addrWriter = new FileWriter(addrFile)) {
-                addrWriter.write(gson.toJson(user2addr));
-            }
-            try (FileWriter deathWriter = new FileWriter(user2deathFile)) {
-                deathWriter.write(gson.toJson(user2death));
-            }
-            try (FileWriter coinWriter = new FileWriter(userCoinsFile)) {
-                coinWriter.write(gson.toJson(userCoins));
-            }
-            try (FileWriter writer = new FileWriter(claimedRewardsFile)) {
-                writer.write(gson.toJson(claimedRewards));
-            } catch (IOException e) {
-                getLogger().severe("无法保存已领取奖励记录！");
-                e.printStackTrace();
-            }
-            try (FileWriter writer = new FileWriter(whiteListFile)) {
-                writer.write(gson.toJson(whiteList));
-            }
+            try {
+                try (FileWriter writer = new FileWriter(userDataFile)) {
+                    writer.write(gson.toJson(userData));
+                    writer.flush();
+                    writer.close();
+                    getLogger().info("已保存用户数据！");
+                }
+            }catch (IOException e) {}
         } catch (Exception e) {
             getLogger().severe("保存用户数据失败！");
             e.printStackTrace();
@@ -282,11 +268,11 @@ public final class BedWarsPro extends JavaPlugin {
         getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.lobby", PermissionDefault.TRUE));
         getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.plot", PermissionDefault.TRUE));
         getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.auth", PermissionDefault.TRUE));
+        getServer().getPluginManager().addPermission(new Permission("bedwarspro.use.settle", PermissionDefault.TRUE));
 
 // Register custom enchantment
         // Register event listener
         Bukkit.getPluginManager().registerEvents(new SmeltingListener(), this);
-
         getLogger().info("Custom enchantment '熔炼' has been registered!");
 
         MarketManager.loadMarketItems();
@@ -303,6 +289,7 @@ public final class BedWarsPro extends JavaPlugin {
         PlotSelectionListener selectionListener = new PlotSelectionListener(plotManager);
 
         getServer().getPluginManager().registerEvents(selectionListener, this);
+        getCommand("settle").setExecutor(new SettleCommand());
         getCommand("plot").setExecutor(new PlotCreateCommand(selectionListener.getPlayerSelections(), plotManager,this));
         getServer().getScheduler().runTaskTimer(this, plotManager::savePlots, 20L * 60 * 5, 20L * 60 * 5); // 每5分钟保存一次
 

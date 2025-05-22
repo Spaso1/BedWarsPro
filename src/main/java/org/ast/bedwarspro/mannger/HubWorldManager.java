@@ -8,6 +8,7 @@ import com.comphenix.protocol.wrappers.WrappedChatComponent;
 import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import org.ast.bedwarspro.BedWarsPro;
 import org.ast.bedwarspro.been.TabGroup;
+import org.ast.bedwarspro.been.User;
 import org.ast.bedwarspro.gui.GameMenuGUI;
 import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -403,24 +404,22 @@ public class HubWorldManager implements Listener {
                         .replace("{username}", player.getName())
                         .replace("{rating}", String.format("%.2f", rating))
                         .replace("{profession}", profession)
-                        .replace("{value}",plugin.getCoins(player) + "")
+                        .replace("{value}",plugin.getUser(player.getName()).getCoins() + "")
         );
     }
 
     private double getRating(String name) {
         try {
-            if (!plugin.getUser2addr().containsKey(name)){
-                return 1.0;
-            }
-            long addr  = plugin.getUser2addr().getOrDefault(name, 0L) + 1;
+            User user = plugin.getUser(name);
+            long addr  = user.getAddr();
             double addr2k = addr / 40.0;
-            int kill = plugin.getUser2kill().getOrDefault(name, 0) + 1;
-            int death = plugin.getUser2death().getOrDefault(name, 0) + 1;
+            int kill = user.getKills() + 1;
+            int death = user.getDeaths() + 1;
             int k_d = kill - death;
             double kd = (double) kill / death;
             return (kd + addr2k) / death * (k_d+1) / (k_d +2);
         }catch (Exception e) {
-           // plugin.re();
+            // plugin.re();
             e.printStackTrace();
             return 1.0;
         }

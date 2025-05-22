@@ -1,5 +1,6 @@
 package org.ast.bedwarspro;
 
+import org.ast.bedwarspro.been.User;
 import org.ast.bedwarspro.gui.ProfessionGUI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -293,10 +294,11 @@ public class PlayerDamageListener implements Listener {
                 }
 
                 plugin.getUserPro().remove(player.getName());
-                if (plugin.getPlays().containsKey(player.getName())) {
-                    plugin.getPlays().put(player.getName(), plugin.getPlays().get(player.getName()) + 1);
+                User user = plugin.getUser(player.getName());
+                if (user.getPlays()!=0) {
+                    user.setPlays(user.getPlays()+1);
                 }else {
-                    plugin.getPlays().put(player.getName(), 1);
+                    user.setPlays(1);
                 }
                 sendMatchSummary(player);
                 playering.get(currentWorld).remove(player.getName());
@@ -314,9 +316,10 @@ public class PlayerDamageListener implements Listener {
     private void sendMatchSummary(Player player) {
         String name = player.getName();
 
-        int kills = plugin.getUser2kill().getOrDefault(name, 0);
-        int deaths = plugin.getUser2death().getOrDefault(name, 0);
-        long totalDamage = plugin.getUser2addr().getOrDefault(name, 0L); // 假设你用 user2addr 来存伤害值
+        User user = plugin.getUser(name);
+        int kills = user.getKills();
+        int deaths = user.getDeaths();
+        long totalDamage = user.getAddr();
 
         player.sendMessage("--------------------------------");
         player.sendMessage("§a【战绩总结】");
@@ -377,11 +380,9 @@ public class PlayerDamageListener implements Listener {
                 swordSaintDamageBuff.remove(attacker.getUniqueId());
             }
             int damage = (int)event.getDamage();
-            if (plugin.getUser2addr().containsKey(attacker.getName())) {
-                plugin.getUser2addr().put(attacker.getName(), plugin.getUser2addr().get(attacker.getName()) + damage);
-            }else {
-                plugin.getUser2addr().put(attacker.getName(), (long) damage);
-            }
+            User user = plugin.getUser(attacker.getName());
+            user.setAddr(damage+user.getAddr());
+
             // Cancel knockback direction for fall damage
             if (event.getCause() == EntityDamageEvent.DamageCause.FALL && event.getEntity() instanceof Player) {
                 Player player = (Player) event.getEntity();
@@ -459,27 +460,15 @@ public class PlayerDamageListener implements Listener {
         if (!world.getName().startsWith("bedworld")) {
             return;
         }
-        try {
-            if (plugin.getUser2death().containsKey(victim.getName())) {
-                plugin.getUser2death().put(victim.getName(), plugin.getUser2death().get(victim.getName()) + 1);
-            } else {
-                plugin.getUser2death().put(victim.getName(), 1);
-            }
-        }catch (Exception e) {
-            plugin.re();
-            plugin.getUser2death().put(victim.getName(), 1);
-        }
+        User user = plugin.getUser(victim.getName());
+        user.setDeaths(user.getDeaths() + 1);
         // 清空玩家背包
         victim.getInventory().clear();
 
         if (victim.getKiller() instanceof Player) {
             Player killer = victim.getKiller();
-            if (plugin.getUser2kill().containsKey(killer.getName())) {
-                plugin.getUser2kill().compute(killer.getName(), (k, currentKills) -> currentKills + 1);
-            }else{
-                plugin.getUser2kill().put(killer.getName(), 1);
-            }
-
+            User killer2 = plugin.getUser(killer.getName());
+            killer2.setKills(user.getKills() + 1);
             String profession = plugin.getUserPro().getOrDefault(killer.getName(), "None");
 
             if (profession.contains("剑圣")) {
@@ -781,13 +770,11 @@ public class PlayerDamageListener implements Listener {
     }
     private double getRating(String name) {
         try {
-            if (!plugin.getUser2addr().containsKey(name)){
-                return 1.0;
-            }
-            long addr  = plugin.getUser2addr().getOrDefault(name, 0L) + 1;
+            User user = plugin.getUser(name);
+            long addr  = user.getAddr();
             double addr2k = addr / 40.0;
-            int kill = plugin.getUser2kill().getOrDefault(name, 0) + 1;
-            int death = plugin.getUser2death().getOrDefault(name, 0) + 1;
+            int kill = user.getKills() + 1;
+            int death = user.getDeaths() + 1;
             int k_d = kill - death;
             double kd = (double) kill / death;
             return (kd + addr2k) / death * (k_d+1) / (k_d +2);
