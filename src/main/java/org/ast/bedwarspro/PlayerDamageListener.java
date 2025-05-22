@@ -2,10 +2,7 @@ package org.ast.bedwarspro;
 
 import org.ast.bedwarspro.been.User;
 import org.ast.bedwarspro.gui.ProfessionGUI;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
@@ -553,6 +550,7 @@ public class PlayerDamageListener implements Listener {
                     if (attackerProfession.contains("忍者")) {
                         if (!hasCooldown(player)) {
                             doRenZe(player);
+                            player.getWorld().playEffect(player.getLocation(), Effect.ENDER_SIGNAL, 1);
                         }
                     }
                     lastSneakPress.remove(uuid); // 避免多次触发
@@ -565,6 +563,7 @@ public class PlayerDamageListener implements Listener {
     private void doShenJianShou(Player attacker, EntityDamageByEntityEvent event) {
         attacker.sendMessage("§d你用【神射手】射中了敌人,伤害x1.3!");
         event.setDamage(event.getDamage() * 1.3);
+        attacker.getWorld().playEffect(attacker.getLocation(), Effect.MOBSPAWNER_FLAMES, 1);
     }
 
     private void doJianSheng(Player attacker, Player victim,EntityDamageByEntityEvent event) {
@@ -574,11 +573,14 @@ public class PlayerDamageListener implements Listener {
             if (!buff.isExpired()) {
                 event.setDamage(event.getDamage() * buff.multiplier);
                 attacker.sendMessage("§c剑圣连击强化！当前伤害倍率: x" + String.format("%.2f", buff.multiplier));
+                //粒子效果
+                attacker.getWorld().playEffect(attacker.getLocation(), Effect.CRIT, 50);
             }
         } else {
             // 初始化 buff
             swordSaintDamageBuff.put(attackerUuid, new DamageBuff(1.1, 10000));
             event.setDamage(event.getDamage() * 1.1);
+            attacker.getWorld().playEffect(attacker.getLocation(), Effect.CRIT, 50);
             attacker.sendMessage("§c剑圣首次击杀，伤害提升至 x1.1");
         }
     }
@@ -586,6 +588,8 @@ public class PlayerDamageListener implements Listener {
         //判断是否是背后攻击
         if (isBackAttack(attacker, victim)) {
             attacker.sendMessage("§c你背对攻击了，触发【刺客】技能！");
+            //粒子效果岩浆水滴
+            attacker.getWorld().playEffect(attacker.getLocation(), Effect.LAVA_POP, 50);
             event.setDamage(event.getDamage() * 1.5);
         }
     }

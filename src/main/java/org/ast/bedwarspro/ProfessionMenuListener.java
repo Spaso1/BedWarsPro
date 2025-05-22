@@ -1,5 +1,6 @@
 package org.ast.bedwarspro;
 
+import org.ast.bedwarspro.been.User;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -18,7 +19,7 @@ public class ProfessionMenuListener implements Listener {
     private final BedWarsPro plugin;
     private final Map<String,Integer> rank = new HashMap<>();
     public ProfessionMenuListener(BedWarsPro plugin) {
-        this.rank.put("default",0);
+        this.rank.put("Reisor",0);
         this.rank.put("VIP",1);
         this.rank.put("MVP",2);
         this.rank.put("CREATE",10);
@@ -50,16 +51,11 @@ public class ProfessionMenuListener implements Listener {
             String needRank = plugin.getConfig().getString("professions." + professionKey + ".need", "default");
 
             if (!needRank.equals("default")) {
-                if (customTitles.containsKey(player.getName())) {
-                    String playerRank = customTitles.get(player.getName());
-                    //playerRank去除小写字母
-                    playerRank = playerRank.replaceAll("[a-z]", "").replaceAll("&", "");
-                    //判断needRank在rank里面的位置
-                    if (rank.get(playerRank) < rank.get(needRank)) {
-                        player.sendMessage("§c你没有此职业！");
-                        return;
-                    }
-                }else {
+                User user = plugin.getUser(player.getName());
+                String playerRank = user.getRank().toLowerCase();
+                //playerRank去除小写字母
+                //判断needRank在rank里面的位置
+                if (rank.get(playerRank) < rank.get(needRank)) {
                     player.sendMessage("§c你没有此职业！");
                     return;
                 }

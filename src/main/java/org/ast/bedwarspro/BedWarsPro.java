@@ -208,6 +208,7 @@ public final class BedWarsPro extends JavaPlugin {
 // Register custom enchantment
         // Register event listener
         Bukkit.getPluginManager().registerEvents(new SmeltingListener(), this);
+        Bukkit.getPluginManager().registerEvents(new MobSpawnListener(new EliteMobManager(this)), this);
         getLogger().info("Custom enchantment '熔炼' has been registered!");
 
         MarketManager.loadMarketItems();
@@ -217,7 +218,7 @@ public final class BedWarsPro extends JavaPlugin {
         InventoryStorage inventoryStorage = new InventoryStorage(this.getDataFolder());
 // 在 onEnable 方法中添加
         Bukkit.getPluginManager().registerEvents(new RewardGUIListener(this), this);
-        Bukkit.getPluginManager().registerEvents(new ChatListener(), this);
+        Bukkit.getPluginManager().registerEvents(new ChatListener(this), this);
 
         Bukkit.getPluginManager().registerEvents(new InventorySyncListener(groupWorldManager, inventoryStorage), this);
 // 注册事件监听器

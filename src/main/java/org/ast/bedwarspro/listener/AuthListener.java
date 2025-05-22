@@ -1,5 +1,6 @@
 package org.ast.bedwarspro.listener;
 
+import org.ast.bedwarspro.BedWarsPro;
 import org.ast.bedwarspro.command.AuthCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -8,6 +9,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -55,9 +57,19 @@ public class AuthListener implements Listener {
     }
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
+        event.setJoinMessage(null);
         if (!authCommand.isLoggedIn(event.getPlayer())) {
             event.getPlayer().sendMessage("§c使用/auth login <password>登录.");
             event.getPlayer().sendMessage("§c或使用/auth register <password>注册.");
+            //重复发送三遍3s一次
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    event.getPlayer().sendMessage("§c使用/auth login <password>登录.");
+                    event.getPlayer().sendMessage("§c或使用/auth register <password>注册.");
+                }
+            }.runTaskTimer(BedWarsPro.getPlugin(BedWarsPro.class), 0, 20 * 3);
+
         }
     }
     //检测玩家退出服务器

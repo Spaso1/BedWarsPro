@@ -13,7 +13,7 @@ public class User {
     private List<String> title;
     private String use_title;
     private Set<String> claimedRewards;
-
+    private int healthInSurivialMax;
     public User(String name) {
         this.name = name;
         this.kills = 0;
@@ -26,6 +26,7 @@ public class User {
         ArrayList<String> title = new ArrayList<>();
         title.add("Reiser");
         this.title = title;
+        this.healthInSurivialMax = 20;
         this.claimedRewards = new HashSet<>();
     }
 
@@ -39,6 +40,22 @@ public class User {
 
     public void setRank(String rank) {
         this.rank = rank;
+    }
+
+    public String getUse_title() {
+        return use_title;
+    }
+
+    public void setUse_title(String use_title) {
+        this.use_title = use_title;
+    }
+
+    public int getHealthInSurivialMax() {
+        return healthInSurivialMax;
+    }
+
+    public void setHealthInSurivialMax(int healthInSurivialMax) {
+        this.healthInSurivialMax = healthInSurivialMax;
     }
 
     public List<String> getTitle() {
